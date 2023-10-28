@@ -11,8 +11,7 @@ the directories written into the files are of the form 'raw_data/...'
 import os
 import sys
 
-utils_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(utils_dir)
+utils_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 utils_dir = os.path.join(utils_dir, 'utils')
 sys.path.append(utils_dir)
 

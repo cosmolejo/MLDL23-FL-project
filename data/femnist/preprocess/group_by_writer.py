@@ -1,7 +1,7 @@
 import os
 import sys
 
-utils_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+utils_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 utils_dir = os.path.join(utils_dir, 'utils')
 sys.path.append(utils_dir)
 

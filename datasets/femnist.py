@@ -1,7 +1,12 @@
 import numpy as np
-import datasets.np_transforms as tr
+import datasets.ss_transforms as tr
 
-from typing import Any
+#from torchvision import transforms
+
+#from torch import from_numpy
+from PIL import Image
+IMAGE_SIZE = 28
+
 from torch.utils.data import Dataset
 
 IMAGE_SIZE = 28
@@ -11,6 +16,8 @@ IMAGE_SIZE = 28
 #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 # ])
 
+#convert_tensor = transforms.ToTensor()
+
 
 class Femnist(Dataset):
 
@@ -19,13 +26,20 @@ class Femnist(Dataset):
                  transform: tr.Compose,
                  client_name: str):
         super().__init__()
-        self.samples = [(image, label) for image, label in zip(data['x'], data['y'])]
+        self.samples = [(image, label) for image, label in zip(data['img'], data['class'])]
         self.transform = transform
         self.client_name = client_name
 
-    def __getitem__(self, index: int) -> Any:
-        # TODO: missing code here!
-        raise NotImplementedError
+    def __getitem__(self, index: int):
+        sample = self.samples[index]
+        image = Image.fromarray(np.uint8(sample[0].reshape(28, 28) * 255))
+        label = sample[1]
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        return image, label
 
     def __len__(self) -> int:
         return len(self.samples)
+

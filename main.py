@@ -6,18 +6,17 @@ import torch
 import random
 
 import numpy as np
-from torchvision.models import resnet18
+#from torchvision.models import resnet18
 
 import datasets.ss_transforms as sstr
 import datasets.np_transforms as nptr
 
-from torch import nn
-from client import Client
+from entities.client import Client
 from datasets.femnist import Femnist
-from server import Server
+from entities.server import Server
 from utils.args import get_parser
-from datasets.idda import IDDADataset
-from models.deeplabv3 import deeplabv3_mobilenetv2
+
+from models.cnn import CNN
 from utils.stream_metrics import StreamSegMetrics, StreamClsMetrics
 
 
@@ -32,14 +31,14 @@ def set_seed(random_seed):
 
 
 def get_dataset_num_classes(dataset):
-    if dataset == 'idda':
-        return 16
     if dataset == 'femnist':
         return 62
-    raise NotImplementedError
+    else:
+        raise NotImplementedError
 
 
 def model_init(args):
+    """
     if args.model == 'deeplabv3_mobilenetv2':
         return deeplabv3_mobilenetv2(num_classes=get_dataset_num_classes(args.dataset))
     if args.model == 'resnet18':
@@ -47,10 +46,13 @@ def model_init(args):
         model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         model.fc = nn.Linear(in_features=512, out_features=get_dataset_num_classes(args.dataset))
         return model
+    """
     if args.model == 'cnn':
-        # TODO: missing code here!
+
+        model = CNN(get_dataset_num_classes('femnist'))
+        return model
+    else:
         raise NotImplementedError
-    raise NotImplementedError
 
 
 def get_transforms(args):
@@ -148,7 +150,7 @@ def main():
     args = parser.parse_args()
     set_seed(args.seed)
 
-    print(f'Initializing model...')
+    print('Initializing model...')
     model = model_init(args)
     model.cuda()
     print('Done.')

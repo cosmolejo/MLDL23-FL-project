@@ -6,13 +6,15 @@ import torch
 import random
 
 import numpy as np
-#from torchvision.models import resnet18
+from torch import nn
+from torchvision.models import resnet18
 
 import datasets.ss_transforms as sstr
 import datasets.np_transforms as nptr
 
 from entities.client import Client
 from datasets.femnist import Femnist
+from torchvision import transforms
 from entities.server import Server
 from utils.args import get_parser
 
@@ -41,12 +43,13 @@ def model_init(args):
     """
     if args.model == 'deeplabv3_mobilenetv2':
         return deeplabv3_mobilenetv2(num_classes=get_dataset_num_classes(args.dataset))
+    """
     if args.model == 'resnet18':
         model = resnet18()
         model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         model.fc = nn.Linear(in_features=512, out_features=get_dataset_num_classes(args.dataset))
         return model
-    """
+
     if args.model == 'cnn':
 
         model = CNN(get_dataset_num_classes('femnist'))
@@ -57,25 +60,18 @@ def model_init(args):
 
 def get_transforms(args):
     # TODO: test your data augmentation by changing the transforms here!
-    if args.model == 'deeplabv3_mobilenetv2':
+    if args.model == 'cnn' or args.model == 'resnet18':
+
         train_transforms = sstr.Compose([
-            sstr.RandomResizedCrop((512, 928), scale=(0.5, 2.0)),
-            sstr.ToTensor(),
-            sstr.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.ToTensor(),
+            nptr.Normalize((0.5,), (0.5,)),
         ])
         test_transforms = sstr.Compose([
-            sstr.ToTensor(),
-            sstr.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-    elif args.model == 'cnn' or args.model == 'resnet18':
-        train_transforms = nptr.Compose([
             nptr.ToTensor(),
             nptr.Normalize((0.5,), (0.5,)),
         ])
-        test_transforms = nptr.Compose([
-            nptr.ToTensor(),
-            nptr.Normalize((0.5,), (0.5,)),
-        ])
+
+
     else:
         raise NotImplementedError
     return train_transforms, test_transforms
@@ -141,7 +137,7 @@ def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
-            clients[i].append(Client(args, ds, model, test_client=i == 1))
+            clients[i].append(Client(args, ds, model, test_client = i == 1))
     return clients[0], clients[1]
 
 
@@ -155,14 +151,23 @@ def main():
     model.cuda()
     print('Done.')
 
-    print('Generate datasets...')
-    train_datasets, test_datasets = get_datasets(args)
-    print('Done.')
+    if args.federated:
+        print('Generate datasets...')
+        train_datasets, test_datasets = get_datasets(args)
+        print('Done.')
 
-    metrics = set_metrics(args)
-    train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
-    server = Server(args, train_clients, test_clients, model, metrics)
-    server.train()
+        metrics = set_metrics(args)
+        print(metrics)
+
+        """
+        train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
+        server = Server(args, train_clients, test_clients, model, metrics)
+        server.train()
+        """
+    else:
+        pass
+        # centralized = centralized(...)
+        # centralized.pipeline()
 
 
 if __name__ == '__main__':

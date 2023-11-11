@@ -26,20 +26,20 @@ class Femnist(Dataset):
                  transform: tr.Compose,
                  client_name: str):
         super().__init__()
-        self.samples = [(image, label) for image, label in zip(data['img'], data['class'])]
+        self.samples = [(image, label) for image, label in zip(data['x'], data['y'])]
         self.transform = transform
         self.client_name = client_name
 
     def __getitem__(self, index: int):
         sample = self.samples[index]
-        image = Image.fromarray(np.uint8(sample[0].reshape(28, 28) * 255))
+        image = Image.fromarray(np.uint8(np.array(sample[0]).reshape(28, 28) * 255))
+        print(np.array(image).shape)
         label = sample[1]
 
         if self.transform is not None:
-            image = self.transform(image)
+            image = self.transform(np.array(image))
 
         return image, label
 
     def __len__(self) -> int:
         return len(self.samples)
-

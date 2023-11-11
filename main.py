@@ -14,6 +14,7 @@ import datasets.np_transforms as nptr
 
 from entities.client import Client
 from datasets.femnist import Femnist
+from entities.centralized import Centralized
 from torchvision import transforms
 from entities.server import Server
 from utils.args import get_parser
@@ -137,7 +138,7 @@ def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
-            clients[i].append(Client(args, ds, model, test_client = i == 1))
+            clients[i].append(Client(args, ds, model, test_client=i == 1))
     return clients[0], clients[1]
 
 
@@ -165,9 +166,16 @@ def main():
         server.train()
         """
     else:
-        pass
-        # centralized = centralized(...)
-        # centralized.pipeline()
+        data_path = os.path.join('data', 'femnist', 'data', 'all_data')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    lr=0.001)  # define loss function criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss()
+        data_transform = transforms.ToTensor()
+        centralized = Centralized(data_path=data_path, model=model,
+                                  optimizer=optimizer, criterion=criterion,
+                                  device=device, transforms=data_transform)
+        centralized.pipeline()
 
 
 if __name__ == '__main__':

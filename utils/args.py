@@ -3,6 +3,8 @@ import argparse
 
 def get_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--federated', action='store_true', default=False,
+                        help='Run the federated learning pipeline instead of the centralized version')
     parser.add_argument('--seed', type=int, default=0, help='random seed')
     parser.add_argument('--dataset', type=str, choices=['idda', 'femnist'], required=True, help='dataset name')
     parser.add_argument('--niid', action='store_true', default=False,

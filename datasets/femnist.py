@@ -33,7 +33,6 @@ class Femnist(Dataset):
     def __getitem__(self, index: int):
         sample = self.samples[index]
         image = Image.fromarray(np.uint8(np.array(sample[0]).reshape(28, 28) * 255))
-        print(np.array(image).shape)
         label = sample[1]
 
         if self.transform is not None:

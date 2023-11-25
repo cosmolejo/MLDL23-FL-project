@@ -7,7 +7,17 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import os
-from datasets.femnist import Femnist
+
+import os
+import sys
+path = os.getcwd()
+if 'kaggle' not in path:
+    from datasets.femnist import Femnist
+else:
+    sys.path.append('datasets')
+    from femnist import Femnist
+
+
 
 IMAGE_SIZE = 28
 

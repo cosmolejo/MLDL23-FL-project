@@ -1,5 +1,14 @@
 import numpy as np
-import datasets.ss_transforms as tr
+import os
+import sys
+path = os.getcwd()
+if 'kaggle' not in path:
+    import datasets.ss_transforms as tr
+else:
+    sys.path.append('datasets')
+    import ss_transforms as tr
+
+
 
 #from torchvision import transforms
 

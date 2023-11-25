@@ -8,12 +8,13 @@ import random
 import numpy as np
 from torch import nn
 from torchvision.models import resnet18
+import sys
 
-import datasets.ss_transforms as sstr
-import datasets.np_transforms as nptr
+sys.path.append('datasets')
+
 
 from entities.client import Client
-from datasets.femnist import Femnist
+
 from entities.centralized import Centralized
 from torchvision import transforms
 from entities.server import Server
@@ -179,4 +180,15 @@ def main():
 
 
 if __name__ == '__main__':
+    path = os.getcwd()
+    if 'kaggle' not in path:
+        import datasets.ss_transforms as sstr
+        import datasets.np_transforms as nptr
+        from datasets.femnist import Femnist
+    else:
+        sys.path.append('datasets')
+        import ss_transforms as sstr
+        import np_transforms as nptr
+        from femnist import Femnist
+
     main()

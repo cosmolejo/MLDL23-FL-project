@@ -6,11 +6,11 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torchvision import transforms
-
+import os
 from datasets.femnist import Femnist
 
 IMAGE_SIZE = 28
-import os
+
 
 
 
@@ -50,7 +50,7 @@ class Centralized:
         print('loading files.....')
         for dirname, _, filenames in os.walk(self.path):
             for filename in filenames:
-                print(filename)
+                #print(filename)
                 data = json.load(open(os.path.join(dirname, filename)))
 
                 temp_df = pd.DataFrame(data['user_data'])

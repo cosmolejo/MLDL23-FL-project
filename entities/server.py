@@ -27,8 +27,9 @@ class Server:
         """
         updates = []
         for i, c in enumerate(clients):
-            # TODO: missing code here!
-            raise NotImplementedError
+            client_update = c.train(self.model)
+            updates.append(client_update)
+
         return updates
 
     def aggregate(self, updates):
@@ -37,27 +38,71 @@ class Server:
         :param updates: updates received from the clients
         :return: aggregated parameters
         """
-        # TODO: missing code here!
-        raise NotImplementedError
+        if len(updates) == 0:
+                    return self.model.state_dict()  # No updates to aggregate
+        
+        # Aggregate the model parameters using Federated Averaging
+        aggregated_params = {}
+        for param_name in updates[0].keys():
+            aggregated_params[param_name] = torch.stack([update[param_name] for update in updates]).mean(dim=0)
+
+        return aggregated_params
+    
+    def update_model(self, aggregated_params):
+        """
+        Update the global model with the aggregated parameters.
+        :param aggregated_params: aggregated parameters from clients
+        """
+        self.model.load_state_dict(aggregated_params)
 
     def train(self):
-        """
-        This method orchestrates the training the evals and tests at rounds level
-        """
+
         for r in range(self.args.num_rounds):
-            # TODO: missing code here!
-            raise NotImplementedError
+            
+            print(f"Round {r+1}/{self.args.num_rounds}")
+            
+            # Train the model on the clients and get updates
+            updates = self.train_round(self.train_clients)
+            
+            # Aggregate the updates using FedAvg
+            aggregated_params = self.aggregate(updates)
+            
+            # Update the global model with the aggregated parameters
+            self.update_model(aggregated_params)
+            
+            # Evaluate on the train clients
+            train_accuracy = self.eval_train(self.train_clients)
+            print(f"Train Accuracy: {train_accuracy:.4f}")
+
+            # Test on the test clients
+            test_accuracy = self.test(self.test_clients)
+            print(f"Test Accuracy: {test_accuracy:.4f}")
+
 
     def eval_train(self):
         """
         This method handles the evaluation on the train clients
         """
-        # TODO: missing code here!
-        raise NotImplementedError
+        total_correct = 0
+        total_samples = 0
+        with torch.no_grad():
+            for client in self.train_clients:
+                client_samples, client_correct = client.evaluate(self.model)
+                total_correct += client_correct
+                total_samples += client_samples
+        accuracy = total_correct / total_samples
+        return accuracy
+    
+
 
     def test(self):
-        """
-            This method handles the test on the test clients
-        """
-        # TODO: missing code here!
+        total_correct = 0
+        total_samples = 0
+        with torch.no_grad():
+            for client in self.test_clients:
+                client_samples, client_correct = client.evaluate(self.model)
+                total_correct += client_correct
+                total_samples += client_samples
+        accuracy = total_correct / total_samples
+        return accuracy
         raise NotImplementedError

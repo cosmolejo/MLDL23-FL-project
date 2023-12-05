@@ -12,7 +12,6 @@ import sys
 
 sys.path.append('datasets')
 
-
 from entities.client import Client
 
 from entities.centralized import Centralized
@@ -137,9 +136,14 @@ def set_metrics(args):
 
 def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
+    optimizer = torch.optim.SGD(model.parameters(),
+                                lr=0.001)  # define loss function criterion = nn.CrossEntropyLoss()
+    id = 0
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
-            clients[i].append(Client(args, ds, model, test_client=i == 1))
+
+            clients[i].append(Client(args, ds, model, optimizer, id, test_client=i == 1))
+            id +=1
     return clients[0], clients[1]
 
 
@@ -161,11 +165,10 @@ def main():
         metrics = set_metrics(args)
         print(metrics)
 
-        """
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
         server = Server(args, train_clients, test_clients, model, metrics)
         server.train()
-        """
+
     else:
         data_path = os.path.join('data', 'femnist', 'data', 'all_data')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

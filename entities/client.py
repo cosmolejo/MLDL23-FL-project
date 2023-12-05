@@ -11,7 +11,7 @@ from utils.utils import HardNegativeMining, MeanReduction
 
 class Client:
 
-    def __init__(self, args, dataset, model, optimizer, test_client=False):
+    def __init__(self, args, dataset, model, optimizer, idx,test_client=False):
         """
         putting the optimizer as an input parameter
         """
@@ -19,6 +19,7 @@ class Client:
         self.dataset = dataset
         self.name = self.dataset.client_name
         self.model = model
+        self.idx = idx
         self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True, drop_last=True) \
             if not test_client else None
         self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
@@ -64,14 +65,15 @@ class Client:
 
             loss = self.criterion(outputs, labels)
 
-            loss.backward()
+            #loss.backward()
+            loss.sum().backward()
             self.optimizer.step()
             
             predictions = torch.argmax(outputs, dim=1)
 
             correct_predictions = torch.sum(torch.eq(predictions, labels)).item()
             tot_correct_predictions += correct_predictions
-            epoch_loss += loss.item()
+            epoch_loss += loss.mean().item()
 
         avg_loss = epoch_loss/self.args.num_epochs
         accuracy = tot_correct_predictions/self.len_dataset*100

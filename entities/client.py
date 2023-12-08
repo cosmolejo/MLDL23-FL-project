@@ -20,11 +20,11 @@ class Client:
         self.name = self.dataset.client_name
         self.model = model
         self.idx = idx
-        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True, drop_last=True) \
-            if not test_client else None
+        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True,
+                                       drop_last=True) if not test_client else None
         self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
         self.optimizer = optimizer
-        self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='none')
+        self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
         self.reduction = HardNegativeMining() if self.args.hnm else MeanReduction()
         self.len_dataset = len(self.dataset)
 
@@ -51,8 +51,8 @@ class Client:
         :param cur_epoch: current epoch of training
         :param optimizer: optimizer used for the local training
         """
-        #There is also scheduler for the learning rate that we will put later.
-        #self.optim_scheduler.step()
+        # There is also scheduler for the learning rate that we will put later.
+        # self.optim_scheduler.step()
         tot_correct_predictions = 0
         epoch_loss = 0
         for cur_step, (images, labels) in enumerate(self.train_loader):
@@ -64,21 +64,22 @@ class Client:
             outputs = self.model(images)
 
             loss = self.criterion(outputs, labels)
-
-            #loss.backward()
-            loss.sum().backward()
-            self.optimizer.step()
             
+
+            loss.backward()
+
+            self.optimizer.step()
+
             predictions = torch.argmax(outputs, dim=1)
 
             correct_predictions = torch.sum(torch.eq(predictions, labels)).item()
             tot_correct_predictions += correct_predictions
             epoch_loss += loss.mean().item()
 
-        avg_loss = epoch_loss/self.args.num_epochs
-        accuracy = tot_correct_predictions/self.len_dataset*100
+        avg_loss = epoch_loss / self.args.num_epochs
+        accuracy = tot_correct_predictions / self.len_dataset * 100
 
-        return avg_loss, accuracy           
+        return avg_loss, accuracy
 
     def train(self):
         """
@@ -86,16 +87,18 @@ class Client:
         (by calling the run_epoch method for each local epoch of training)
         :return: length of the local dataset, copy of the model parameters
         """
-        #initial_model_params = copy.deepcopy(self.model.state_dict())
-        #maybe it is needed
-        
-        for epoch in range(self.args.num_epochs):
+        # initial_model_params = copy.deepcopy(self.model.state_dict())
+        # maybe it is needed
 
-            print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch+1}/{self.args.num_epochs}")
+        for epoch in range(self.args.num_epochs):
+            print(
+                f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch + 1}/{self.args.num_epochs}")
             avg_loss, train_accuracy = self.run_epoch()
-            print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch+1}/{self.args.num_epochs} - ", end="")
+            print(
+                f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",
+                end="")
             print(f"Loss={round(avg_loss, 3)}, Accuracy={round(train_accuracy, 2)}%")
-            
+
         return self.model.state_dict()
 
     def test(self, metric, key):
@@ -109,7 +112,7 @@ class Client:
             for i, (images, labels) in enumerate(self.test_loader):
                 images = images.cuda()
                 labels = labels.cuda()
-                
+
                 outputs = self.model(images)
 
                 _, predicted = torch.max(outputs.data, 1)

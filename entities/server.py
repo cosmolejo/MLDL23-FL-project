@@ -16,15 +16,7 @@ class Server:
         self.metrics = metrics
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
 
-    def __averaging(self, k_lens, ws):
 
-        w_avg = copy.deepcopy(ws[0])
-
-        for key in w_avg.keys():
-            w_avg[key] *= k_lens[0]
-            for i in range(1, len(ws)):
-                w_avg[key] += ws[i][key]*k_lens[i]
-            w_avg[key] = w_avg[key]/sum(k_lens)
 
     def select_clients(self):
         '''
@@ -35,7 +27,6 @@ class Server:
         num_clients = min(self.args.clients_per_round, len(self.train_clients))
         sel_clients = np.random.choice(self.train_clients, num_clients, replace=False)
         return sel_clients
-
 
     def train_round(self, clients):
         """
@@ -50,10 +41,10 @@ class Server:
         # in essence this is a list of dicitionaries 
         updates = []
         for i, c in enumerate(clients):
-            #our addition
+            # our addition
             # this initialized the method "train" in client
             # which outputs model.state_dic 
-            #which has as keys 'layer_weights':
+            # which has as keys 'layer_weights':
             # layer_bias: 
             client_update = c.train()
             updates.append(client_update)
@@ -61,16 +52,16 @@ class Server:
 
     def aggregate(self, updates):
 
-        #our addition
+        # our addition
         """
         This method handles the FedAvg aggregation
         :param updates: updates received from the clients
         :return: aggregated parameters
         """
         if len(updates) == 0:
-                    # the original model
-                    return self.model.state_dict()  # No updates to aggregate
-        
+            # the original model
+            return self.model.state_dict()  # No updates to aggregate
+
         # Aggregate the model parameters using Federated Averaging
         # sets a single dic for all clients as a global dic 
         aggregated_params = OrderedDict()
@@ -89,8 +80,6 @@ class Server:
             averaged_state_dict[layer_name] /= len(updates)
 
         return averaged_state_dict
-    
-
 
     def train(self):
         '''
@@ -100,41 +89,38 @@ class Server:
         '''
 
         for r in range(self.args.num_rounds):
-            #our addition
+            # our addition
             # take selected clients
             sel_clients = self.select_clients()
-            print(f"Round {r+1}/{self.args.num_rounds}")
-            
+            print(f"Round {r + 1}/{self.args.num_rounds}")
+
             # Train the model on the selected clients 
             # and ouputs "updates" the list with state_dic
-        
+
             train_sel_c = self.train_round(sel_clients)
-            
+
             # Aggregate the updates using FedAvg for the selected clients
             # returns 1 dicitionary with the "final" parameters of the round
             aggregated_params = self.aggregate(train_sel_c)
 
-            
             # Update the global model with the aggregated parameters
             # we call the method model.load_state_dict from the "module" class
 
             self.model.load_state_dict(aggregated_params)
 
-            
             # Evaluate on the train clients
             train_accuracy = self.eval_train(sel_clients)
-            print(f"Train Accuracy for round {r+1} is : {train_accuracy:.4f}")
+            print(f"Train Accuracy for round {r + 1} is : {train_accuracy:.4f}")
 
             # Test on the test clients
             test_accuracy = self.test()
-            print(f"Test Accuracy for round {r+1}: {test_accuracy:.4f}")
-
+            print(f"Test Accuracy for round {r + 1}: {test_accuracy:.4f}")
 
     def eval_train(self, clients):
         """
         This method handles the evaluation on the train clients
         """
-        #our addition
+        # our addition
         total_correct = 0
         total_samples = 0
         with torch.no_grad():
@@ -144,8 +130,6 @@ class Server:
                 total_samples += client_samples
         accuracy = total_correct / total_samples
         return accuracy
-    
-
 
     def test(self):
         """
@@ -160,4 +144,3 @@ class Server:
                 total_samples += client_samples
         accuracy = total_correct / total_samples
         return accuracy
-

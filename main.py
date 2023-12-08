@@ -1,14 +1,13 @@
-import os
 import json
+import os
+import random
+import sys
 from collections import defaultdict
 
-import torch
-import random
-
 import numpy as np
+import torch
 from torch import nn
 from torchvision.models import resnet18
-import sys
 
 sys.path.append('datasets')
 
@@ -63,16 +62,8 @@ def get_transforms(args):
     # TODO: test your data augmentation by changing the transforms here!
     if args.model == 'cnn' or args.model == 'resnet18':
 
-        train_transforms = sstr.Compose([
-            transforms.ToTensor(),
-            nptr.Normalize((0.5,), (0.5,)),
-        ])
-        test_transforms = sstr.Compose([
-            transforms.ToTensor(),
-            nptr.Normalize((0.5,), (0.5,)),
-        ])
-
-
+        train_transforms = sstr.Compose([transforms.ToTensor(), nptr.Normalize((0.5,), (0.5,)), ])
+        test_transforms = sstr.Compose([transforms.ToTensor(), nptr.Normalize((0.5,), (0.5,)), ])
     else:
         raise NotImplementedError
     return train_transforms, test_transforms
@@ -119,16 +110,12 @@ def get_datasets(args):
 def set_metrics(args):
     num_classes = get_dataset_num_classes(args.dataset)
     if args.model == 'deeplabv3_mobilenetv2':
-        metrics = {
-            'eval_train': StreamSegMetrics(num_classes, 'eval_train'),
-            'test_same_dom': StreamSegMetrics(num_classes, 'test_same_dom'),
-            'test_diff_dom': StreamSegMetrics(num_classes, 'test_diff_dom')
-        }
+        metrics = {'eval_train': StreamSegMetrics(num_classes, 'eval_train'),
+                   'test_same_dom': StreamSegMetrics(num_classes, 'test_same_dom'),
+                   'test_diff_dom': StreamSegMetrics(num_classes, 'test_diff_dom')}
     elif args.model == 'resnet18' or args.model == 'cnn':
-        metrics = {
-            'eval_train': StreamClsMetrics(num_classes, 'eval_train'),
-            'test': StreamClsMetrics(num_classes, 'test')
-        }
+        metrics = {'eval_train': StreamClsMetrics(num_classes, 'eval_train'),
+                   'test': StreamClsMetrics(num_classes, 'test')}
     else:
         raise NotImplementedError
     return metrics
@@ -136,12 +123,10 @@ def set_metrics(args):
 
 def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
-    optimizer = torch.optim.SGD(model.parameters(),
-                                lr=0.001)  # define loss function criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.00001)  # define loss function criterion = nn.CrossEntropyLoss()
     id = 0
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
-
             clients[i].append(Client(args, ds, model, optimizer, id, test_client=i == 1))
             id += 1
     return clients[0], clients[1]
@@ -163,10 +148,13 @@ def main():
         print('Done.')
 
         metrics = set_metrics(args)
-        #print(metrics)
-
+        # print(metrics)
+        print('Gererating clients...')
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
+        print('Done.')
+        print('Creating server')
         server = Server(args, train_clients, test_clients, model, metrics)
+        print('Training start.....')
         server.train()
 
     else:
@@ -176,8 +164,7 @@ def main():
                                     lr=0.001)  # define loss function criterion = nn.CrossEntropyLoss()
         criterion = nn.CrossEntropyLoss()
         data_transform = transforms.ToTensor()
-        centralized = Centralized(data_path=data_path, model=model,
-                                  optimizer=optimizer, criterion=criterion,
+        centralized = Centralized(data_path=data_path, model=model, optimizer=optimizer, criterion=criterion,
                                   device=device, transforms=data_transform)
         centralized.pipeline()
 

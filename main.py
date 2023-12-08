@@ -68,7 +68,7 @@ def get_transforms(args):
             nptr.Normalize((0.5,), (0.5,)),
         ])
         test_transforms = sstr.Compose([
-            nptr.ToTensor(),
+            transforms.ToTensor(),
             nptr.Normalize((0.5,), (0.5,)),
         ])
 
@@ -143,7 +143,7 @@ def gen_clients(args, train_datasets, test_datasets, model):
         for ds in datasets:
 
             clients[i].append(Client(args, ds, model, optimizer, id, test_client=i == 1))
-            id +=1
+            id += 1
     return clients[0], clients[1]
 
 
@@ -163,7 +163,7 @@ def main():
         print('Done.')
 
         metrics = set_metrics(args)
-        print(metrics)
+        #print(metrics)
 
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
         server = Server(args, train_clients, test_clients, model, metrics)

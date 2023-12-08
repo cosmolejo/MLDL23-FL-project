@@ -11,7 +11,7 @@ from utils.utils import HardNegativeMining, MeanReduction
 
 class Client:
 
-    def __init__(self, args, dataset, model, optimizer, idx,test_client=False):
+    def __init__(self, args, dataset, model, optimizer, idx, test_client=False):
         """
         putting the optimizer as an input parameter
         """
@@ -32,11 +32,11 @@ class Client:
         return self.name
 
     @staticmethod
-    def update_metric(metric, outputs, labels):
+    def update_metric(metric, outputs, labels, key):
         _, prediction = outputs.max(dim=1)
         labels = labels.cpu().numpy()
         prediction = prediction.cpu().numpy()
-        metric.update(labels, prediction)
+        metric[key].update(labels, prediction)
 
     def _get_outputs(self, images):
         if self.args.model == 'deeplabv3_mobilenetv2':
@@ -80,7 +80,6 @@ class Client:
 
         return avg_loss, accuracy           
 
-
     def train(self):
         """
         This method locally trains the model with the dataset of the client. It handles the training at epochs level
@@ -99,24 +98,24 @@ class Client:
             
         return self.model.state_dict()
 
-    def test(self, metric):
+    def test(self, metric, key):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
         """
-        correct=0
-        total=0
+        correct = 0
+        total = 0
         with torch.no_grad():
             for i, (images, labels) in enumerate(self.test_loader):
                 images = images.cuda()
-                labels=labels.cuda()
+                labels = labels.cuda()
                 
-                outputs=self.model(images)
+                outputs = self.model(images)
 
                 _, predicted = torch.max(outputs.data, 1)
 
                 total += labels.size(0)
                 correct += torch.eq(predicted, labels).sum().item()
 
-                self.update_metric(metric, outputs, labels)
-
+                self.update_metric(metric, outputs, labels, key)
+        return total, correct

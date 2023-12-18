@@ -29,7 +29,7 @@ class Client:
         self.len_dataset = len(self.dataset)
 
     def __str__(self):
-        return self.name
+        return self.idx
 
     @staticmethod
     def update_metric(metric, outputs, labels, key):
@@ -54,7 +54,9 @@ class Client:
         # There is also scheduler for the learning rate that we will put later.
         # self.optim_scheduler.step()
         tot_correct_predictions = 0
-        epoch_loss = 0
+        running_loss = 0.0
+        i = 0
+        #for i in range(10)
         for cur_step, (images, labels) in enumerate(self.train_loader):
             images = images.cuda()
             labels = labels.cuda()
@@ -67,19 +69,61 @@ class Client:
             
 
             loss.backward()
+            running_loss += loss.item()
 
             self.optimizer.step()
-
+            i +=1
+            
             predictions = torch.argmax(outputs, dim=1)
 
             correct_predictions = torch.sum(torch.eq(predictions, labels)).item()
             tot_correct_predictions += correct_predictions
-            epoch_loss += loss.mean().item()
 
-        avg_loss = epoch_loss / self.args.num_epochs
+        loss_for_this_epoch = running_loss / i
         accuracy = tot_correct_predictions / self.len_dataset * 100
+        return loss_for_this_epoch, accuracy
+       
+        """
+        criterion = nn.CrossEntropyLoss().to(self.device)
+        if self.optim == 'adam':
+            optimizer = optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        elif self.optim == 'SGD':
+            optimizer = optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay, momentum=self.momentum)
+        losses = np.empty(num_epochs)
 
-        return avg_loss, accuracy
+        for epoch in range(num_epochs):
+            self.model.train()
+            if self.mixup:
+                losses[epoch] = self.run_epoch_with_mixup(optimizer, criterion)
+            else:
+                losses[epoch] = self.run_epoch(optimizer, criterion)
+
+        self.losses = losses
+        update = self.model.state_dict()
+        return self.num_train_samples, update
+        
+
+        """
+        """
+        def run_epoch(self, optimizer, criterion):
+            running_loss = 0.0
+            i = 0
+            for j, data in enumerate(self.trainloader):
+                input_data_tensor, target_data_tensor = data[0].to(self.device), data[1].to(self.device)
+                optimizer.zero_grad()
+                outputs = self.model(input_data_tensor)
+                loss = criterion(outputs, target_data_tensor)
+                loss.backward()  # gradient inside the optimizer (memory usage increases here)
+                running_loss += loss.item()
+                optimizer.step()  # update of weights
+                i += 1
+            if i == 0:
+                print("Not running epoch", self.id)
+                return 0
+            return running_loss / i
+        """
+
+       
 
     def train(self):
         """
@@ -89,17 +133,23 @@ class Client:
         """
         # initial_model_params = copy.deepcopy(self.model.state_dict())
         # maybe it is needed
+        
 
         for epoch in range(self.args.num_epochs):
-            print(
-                f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch + 1}/{self.args.num_epochs}")
-            avg_loss, train_accuracy = self.run_epoch()
-            print(
-                f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",
-                end="")
-            print(f"Loss={round(avg_loss, 3)}, Accuracy={round(train_accuracy, 2)}%")
+            print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch + 1}/{self.args.num_epochs}")
+            
+            loss_each_epoch, train_accuracy = self.run_epoch()
+            
+            if epoch != self.args.num_epochs:
+                print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",end="")
+                print(f"Loss={round(loss_each_epoch, 3)}, Accuracy={round(train_accuracy, 2)}%")
+            else:
+                last_epoch_loss = loss_each_epoch
+                print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",end="")
+                print(f"Loss last epochs={round(last_epoch_loss, 3)}, Accuracy={round(train_accuracy, 2)}%")
+            
 
-        return self.model.state_dict()
+        return (len(self.train_loader),self.model.state_dict()) 
 
     def test(self, metric, key):
         """

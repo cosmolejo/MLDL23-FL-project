@@ -81,30 +81,41 @@ def read_femnist_dir(data_dir):
     return data
 
 
-def read_femnist_data(train_data_dir, test_data_dir):
-    return read_femnist_dir(train_data_dir), read_femnist_dir(test_data_dir)
+def read_femnist_data(train_data_dir, test_data_dir=None):
+    """
+    If only one directory was given, the function returns the
+    all_data folder content
+    """
+    if test_data_dir:
+        return read_femnist_dir(train_data_dir), read_femnist_dir(test_data_dir)
+    else:
+        return read_femnist_dir(train_data_dir)
 
 
 def get_datasets(args):
-    train_datasets = []
-    train_transforms, test_transforms = get_transforms(args)
-
-    # elif args.dataset == 'femnist':
-    niid = args.niid
-    train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
-    test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
-    train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
 
     train_transforms, test_transforms = get_transforms(args)
 
     train_datasets, test_datasets = [], []
+    if args.federated:
+        # elif args.dataset == 'femnist':
+        niid = args.niid
+        train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
+        test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
+        train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
 
-    for user, data in train_data.items():
-        train_datasets.append(Femnist(data, train_transforms, user))
-    for user, data in test_data.items():
-        test_datasets.append(Femnist(data, test_transforms, user))
+        for user, data in train_data.items():
+            train_datasets.append(Femnist(data, train_transforms, user))
+        for user, data in test_data.items():
+            test_datasets.append(Femnist(data, test_transforms, user))
 
-    return train_datasets, test_datasets
+        return train_datasets, test_datasets
+    else:
+        all_data_dir = os.path.join('data', 'femnist', 'data', 'all_data')
+        all_data = read_femnist_data(all_data_dir)
+        centralized_datasets = []
+        for user,data in all_data:
+            centralized_datasets.append(Femnist(data, train_transforms, user))
 
 
 def set_metrics(args):
@@ -123,12 +134,16 @@ def set_metrics(args):
 
 def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.00001)  # define loss function criterion = nn.CrossEntropyLoss()
-    id = 0
+    # define loss function criterion = nn.CrossEntropyLoss()
+    idx = 0 
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
-            clients[i].append(Client(args, ds, model, optimizer, id, test_client=i == 1))
-            id += 1
+            clients[i].append(Client(args, ds, model,
+                                     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr),
+                                     idx=idx, test_client=i == 1)
+                              )
+            idx += 1
+    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
 
 
@@ -161,11 +176,11 @@ def main():
         data_path = os.path.join('data', 'femnist', 'data', 'all_data')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         optimizer = torch.optim.SGD(model.parameters(),
-                                    lr=0.001)  # define loss function criterion = nn.CrossEntropyLoss()
+                                    lr=args.lr, momentum=args.m , weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
         criterion = nn.CrossEntropyLoss()
         data_transform = transforms.ToTensor()
         centralized = Centralized(data_path=data_path, model=model, optimizer=optimizer, criterion=criterion,
-                                  device=device, transforms=data_transform)
+                                  device=device, transforms=data_transform, args=args)
         centralized.pipeline()
 
 

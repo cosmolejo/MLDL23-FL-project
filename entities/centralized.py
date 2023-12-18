@@ -6,6 +6,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from PIL import Image
 import os
 
 import os
@@ -28,7 +29,8 @@ IMAGE_SIZE = 28
 
 class Centralized:
 
-    def __init__(self, data_path, model, optimizer, criterion, device, transforms):
+    def __init__(self,args, data_path, model, optimizer, criterion, device, transforms):
+        self.args = args
         self.path = data_path
         self.model = model
         self.optimizer = optimizer
@@ -69,6 +71,38 @@ class Centralized:
         df = df.rename(index={0: "x", 1: "y"})
         return df
 
+    def rotatedFemnist(self, dataframe):
+        rotated_images = []
+        rotated_labels = []
+        for index, row in dataframe.iterrows():
+            image_array = row[0]  # Assuming the image arrays are in the first column
+            label = row[1]  # Assuming the labels are in the second column
+            if image_array.shape != (784,):
+                print(f"Skipping row {index} due to incorrect array shape: {image_array.shape}")
+                continue
+
+            # Convert the 1D array to a 2D array (28x28 image assuming size is 784)
+            image_matrix = image_array.reshape(28, 28)
+
+            # Randomly choose rotation angle from [0, 15, 30, 45, 60, 75]
+            angle = np.random.choice([0, 15, 30, 45, 60, 75])
+            # Rotate the image using PIL
+            image_matrix = (image_matrix * 255).astype(np.uint8)
+
+            rotated_image = Image.fromarray(image_matrix)
+            rotated_image = rotated_image.rotate(angle)
+
+            # Convert the rotated image back to a numpy array
+            rotated_array = np.array(rotated_image, dtype=np.float32).flatten() / 255.0
+
+            rotated_images.append(rotated_array)
+            rotated_labels.append(label)
+
+        # Create a new DataFrame with rotated images and labels
+        rotated_df = pd.DataFrame({'img': rotated_images, 'class': rotated_labels})
+
+        return rotated_df
+
     def train_test_tensors(self, batch):
         convert_tensor = transforms.ToTensor()
         X_train, X_val, y_train, y_val = train_test_split(batch['img'], batch['class'], test_size=0.2, random_state=42)
@@ -83,7 +117,7 @@ class Centralized:
 
     def training(self, torch_train):
 
-        train_loader = DataLoader(torch_train, batch_size=64, shuffle=True)
+        train_loader = DataLoader(torch_train, batch_size=self.args.bs, shuffle=True)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         for epoch in range(5):  # loop over the dataset multiple times
             running_loss = 0.0
@@ -148,16 +182,19 @@ class Centralized:
             print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
     """
     def pipeline(self):
-        print('loading data')
+        print('loading data...')
         out_df = self.get_data()
         print('preprocessing')
         # dataframe of the dataset
         df = self.data_parser(out_df)
         del out_df
         print('Done')
-        n_classes = self.n_classes(df)
+        #n_classes = self.n_classes(df)
         # train and test tensors
-        torch_train, torch_test = self.train_test_tensors(df)
+        print('Rotating the dataset')
+        rotated_df=self.rotatedFemnist(df)
+        del df
+        torch_train, torch_test = self.train_test_tensors(batch=rotated_df)
         print('Training')
         self.training(torch_train)
         print('Done.')
@@ -165,4 +202,3 @@ class Centralized:
         val_loader = DataLoader(torch_test, batch_size=64, shuffle=False)
         print('Validating')
         self.accuracy_of_model(val_loader)
-

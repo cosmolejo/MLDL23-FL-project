@@ -2,8 +2,8 @@
 
 NAME="femnist"
 
-cd ./utils
+cd ../utils
 
 python3 stats.py --name $NAME
 
-cd ..
+cd ../$NAME

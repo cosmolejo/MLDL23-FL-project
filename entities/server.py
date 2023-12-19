@@ -1,5 +1,6 @@
 import copy
 import pprint
+import math
 
 from collections import OrderedDict
 import numpy as np
@@ -24,9 +25,37 @@ class Server:
         The way selection is done is by only considering the min number between
         a pre-set value for num_clients arbitraily and then chose min 
         '''
-        num_clients = min(self.args.clients_per_round, len(self.train_clients))
-        sel_clients = np.random.choice(self.train_clients, num_clients, replace=False)
-        print(sel_clients)
+        if self.args.client_select == 0:
+            num_clients = min(self.args.clients_per_round, len(self.train_clients))
+            sel_clients = np.random.choice(self.train_clients, num_clients, replace=False)
+        
+        elif self.args.client_select == 1:  
+            num_clients = min(self.args.clients_per_round, len(self.train_clients))
+            """
+            with 10% of clients being selected with probability 0.5 at each round
+            with 30% of clients being selected with probability 0.0001 at each round
+            """
+            n10perc = math.ceil(len(self.train_clients)*0.1)
+            list_client10 =  self.train_clients[:n10perc]
+            list_client90 = self.train_clients[n10perc:]
+            list_p10 = [1/n10perc] * n10perc
+            list_p90 = [1/(len(self.train_clients)-n10perc)] * (len(self.train_clients)-n10perc)
+            sel_clients = []
+            i=0
+            while i != (num_clients):
+                if np.random.random() < 0.5:
+                    c = np.random.choice(list_client10, p=list_p10, replace=False)
+                    if c not in sel_clients:
+                        sel_clients.append(c)
+                        i+=1
+                else:
+                    c = np.random.choice(list_client90, p=list_p90, replace=False)
+                    if c not in sel_clients:
+                        sel_clients.append(c)
+                        i+=1
+            
+            print(f'len clients:{len(sel_clients)}')
+            print(f'selected client: {sel_clients}')
         return sel_clients
 
     def train_round(self, clients):

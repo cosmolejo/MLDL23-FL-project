@@ -56,7 +56,6 @@ class Client:
         tot_correct_predictions = 0
         running_loss = 0.0
         i = 0
-        #for i in range(10)
         for cur_step, (images, labels) in enumerate(self.train_loader):
             images = images.cuda()
             labels = labels.cuda()

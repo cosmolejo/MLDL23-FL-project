@@ -6,11 +6,12 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from PIL import Image
 import os
+from PIL import Image
 
 import os
 import sys
+
 path = os.getcwd()
 if 'kaggle' not in path:
     from datasets.femnist import Femnist
@@ -18,19 +19,12 @@ else:
     sys.path.append('datasets')
     from femnist import Femnist
 
-
-
 IMAGE_SIZE = 28
-
-
-
-
 
 
 class Centralized:
 
-    def __init__(self,args, data_path, model, optimizer, criterion, device, transforms):
-        self.args = args
+    def __init__(self, data_path, model, optimizer, criterion, device, transforms):
         self.path = data_path
         self.model = model
         self.optimizer = optimizer
@@ -40,6 +34,7 @@ class Centralized:
 
     def n_classes(self, batch):
         return batch['class'].unique().shape[0]
+
     def data_parser(self, df):
         """
         takes a dataframe sorted by writers and unpacks the data
@@ -62,7 +57,7 @@ class Centralized:
         print('loading files.....')
         for dirname, _, filenames in os.walk(self.path):
             for filename in filenames:
-                #print(filename)
+                # print(filename)
                 data = json.load(open(os.path.join(dirname, filename)))
 
                 temp_df = pd.DataFrame(data['user_data'])
@@ -117,7 +112,7 @@ class Centralized:
 
     def training(self, torch_train):
 
-        train_loader = DataLoader(torch_train, batch_size=self.args.bs, shuffle=True)
+        train_loader = DataLoader(torch_train, batch_size=64, shuffle=True)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         for epoch in range(5):  # loop over the dataset multiple times
             running_loss = 0.0
@@ -181,6 +176,7 @@ class Centralized:
             accuracy = 100 * float(correct_count) / total_pred[classname]
             print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
     """
+
     def pipeline(self):
         print('loading data...')
         out_df = self.get_data()
@@ -189,10 +185,10 @@ class Centralized:
         df = self.data_parser(out_df)
         del out_df
         print('Done')
-        #n_classes = self.n_classes(df)
+        # n_classes = self.n_classes(df)
         # train and test tensors
         print('Rotating the dataset')
-        rotated_df=self.rotatedFemnist(df)
+        rotated_df = self.rotatedFemnist(df)
         del df
         torch_train, torch_test = self.train_test_tensors(batch=rotated_df)
         print('Training')

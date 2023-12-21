@@ -278,8 +278,47 @@ class RandomRotation(object):
         else:
             return F.rotate(img, angle, self.resample, self.expand, self.center)
 
+class Rotation(object):
+    """Rotate the image by angle.
+    Args:
+        degrees (sequence or float or int): Range of degrees to rotate.
+        resample ({PIL.Image.NEAREST, PIL.Image.BILINEAR, PIL.Image.BICUBIC}, optional):
+            An optional resampling filter.
+            See http://pillow.readthedocs.io/en/3.4.x/handbook/concepts.html#filters
+            If omitted, or if the image has mode "1" or "P", it is set to PIL.Image.NEAREST.
+        expand (bool, optional): Optional expansion flag.
+            If true, expands the output to make it large enough to hold the entire rotated image.
+            If false or omitted, make the output image the same size as the input image.
+            Note that the expand flag assumes rotation around the center and no translation.
+        center (2-tuple, optional): Optional center of rotation.
+            Origin is the upper left corner.
+            Default is the center of the image.
+    """
+
+    def __init__(self, degree, resample=False, expand=False, center=None):
+
+        self.resample = resample
+        self.expand = expand
+        self.center = center
+        self.angle = degree
+
+    def __call__(self, img, lbl):
+        """
+            img (PIL Image): Image to be rotated.
+            lbl (PIL Image): Label to be rotated.
+        Returns:
+            PIL Image: Rotated image.
+            PIL Image: Rotated label.
+        """
+
+        if lbl is not None:
+            return F.rotate(img, self.angle, self.resample, self.expand, self.center), \
+                F.rotate(lbl, self.angle, self.resample, self.expand, self.center)
+        else:
+            return F.rotate(img, self.angle, self.resample, self.expand, self.center)
+
     def __repr__(self):
-        format_string = self.__class__.__name__ + '(degrees={0}'.format(self.degrees)
+        format_string = self.__class__.__name__ + '(degrees={0}'.format(self.angle)
         format_string += ', resample={0}'.format(self.resample)
         format_string += ', expand={0}'.format(self.expand)
         if self.center is not None:

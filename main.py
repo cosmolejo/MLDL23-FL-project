@@ -1,8 +1,8 @@
-import json
 import os
+import pprint
 import random
 import sys
-from collections import defaultdict
+
 
 import numpy as np
 import torch
@@ -15,12 +15,13 @@ from entities.client import Client
 
 from entities.centralized import Centralized
 from torchvision import transforms
+
 from entities.server import Server
 from utils.args import get_parser
 
 from models.cnn import CNN
 from utils.stream_metrics import StreamSegMetrics, StreamClsMetrics
-
+from utils.data_generation import *
 
 def set_seed(random_seed):
     random.seed(random_seed)
@@ -57,66 +58,10 @@ def model_init(args):
     else:
         raise NotImplementedError
 
-
-def get_transforms(args):
-    # TODO: test your data augmentation by changing the transforms here!
-    if args.model == 'cnn' or args.model == 'resnet18':
-
-        train_transforms = sstr.Compose([transforms.ToTensor(), nptr.Normalize((0.5,), (0.5,)), ])
-        test_transforms = sstr.Compose([transforms.ToTensor(), nptr.Normalize((0.5,), (0.5,)), ])
-    else:
-        raise NotImplementedError
-    return train_transforms, test_transforms
-
-
-def read_femnist_dir(data_dir):
-    data = defaultdict(lambda: {})
-    files = os.listdir(data_dir)
-    files = [f for f in files if f.endswith('.json')]
-    for f in files:
-        file_path = os.path.join(data_dir, f)
-        with open(file_path, 'r') as inf:
-            cdata = json.load(inf)
-        data.update(cdata['user_data'])
-    return data
-
-
-def read_femnist_data(train_data_dir, test_data_dir=None):
-    """
-    If only one directory was given, the function returns the
-    all_data folder content
-    """
-    if test_data_dir:
-        return read_femnist_dir(train_data_dir), read_femnist_dir(test_data_dir)
-    else:
-        return read_femnist_dir(train_data_dir)
-
-
-def get_datasets(args):
-
-    train_transforms, test_transforms = get_transforms(args)
-
-    train_datasets, test_datasets = [], []
-    if args.federated:
-        # elif args.dataset == 'femnist':
-        niid = args.niid
-        train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
-        test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
-        train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
-
-        for user, data in train_data.items():
-            train_datasets.append(Femnist(data, train_transforms, user))
-        for user, data in test_data.items():
-            test_datasets.append(Femnist(data, test_transforms, user))
-
-        return train_datasets, test_datasets
-    else:
-        all_data_dir = os.path.join('data', 'femnist', 'data', 'all_data')
-        all_data = read_femnist_data(all_data_dir)
-        centralized_datasets = []
-        for user,data in all_data:
-            centralized_datasets.append(Femnist(data, train_transforms, user))
-
+###########################################
+## Moved read_femnist_dir, read_femnist_data,
+## get_transforms and get_datasets into utils.utils
+###########################################
 
 def set_metrics(args):
     num_classes = get_dataset_num_classes(args.dataset)
@@ -146,6 +91,46 @@ def gen_clients(args, train_datasets, test_datasets, model):
     print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
 
+
+def gen_rot_clients(args, datasets, model, angle):
+    idx = 0
+    clients = [[], []]
+    if args.loo:
+        for key in datasets.keys():
+            if key == angle:
+                for ds in datasets[key]:
+                    clients[1].append(Client(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=True)
+                                      )
+                    idx += 1
+            else:
+                for ds in datasets[key]:
+                    clients[0].append(Client(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=False)
+                                      )
+                    idx += 1
+    else:
+        indices = list(range(1000))
+        sample = random.sample(indices, 700)
+        split = [False if i not in sample else True for i in indices]
+
+        for key in datasets.keys():
+            for ds in datasets[key]:
+                if split[idx]:
+                    clients[0].append(Client(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=False)
+                                      )
+                else:
+                    clients[1].append(Client(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=True)
+                                      )
+                idx += 1
+    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
+    return clients[0], clients[1]
 
 def main():
     parser = get_parser()
@@ -197,3 +182,4 @@ if __name__ == '__main__':
         from femnist import Femnist
 
     main()
+

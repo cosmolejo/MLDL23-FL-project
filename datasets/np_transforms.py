@@ -21,7 +21,37 @@ from skimage.transform import resize
 def _is_numpy_image(img):
     return isinstance(img, np.ndarray)
 
+def rotatedFemnist(dataframe):
+        rotated_images = []
+        rotated_labels = []
+        for index, row in dataframe.iterrows():
+            image_array = row[0]  # Assuming the image arrays are in the first column
+            label = row[1]  # Assuming the labels are in the second column
+            if image_array.shape != (784,):
+                print(f"Skipping row {index} due to incorrect array shape: {image_array.shape}")
+                continue
 
+            # Convert the 1D array to a 2D array (28x28 image assuming size is 784)
+            image_matrix = image_array.reshape(28, 28)
+
+            # Randomly choose rotation angle from [0, 15, 30, 45, 60, 75]
+            angle = np.random.choice([0, 15, 30, 45, 60, 75])
+            # Rotate the image using PIL
+            image_matrix = (image_matrix * 255).astype(np.uint8)
+
+            rotated_image = Image.fromarray(image_matrix)
+            rotated_image = rotated_image.rotate(angle)
+
+            # Convert the rotated image back to a numpy array
+            rotated_array = np.array(rotated_image, dtype=np.float32).flatten() / 255.0
+
+            rotated_images.append(rotated_array)
+            rotated_labels.append(label)
+
+        # Create a new DataFrame with rotated images and labels
+        rotated_df = pd.DataFrame({'img': rotated_images, 'class': rotated_labels})
+
+        return rotated_df
 def crop(pic, i, j, h, w):
     if not _is_numpy_image(pic):
         raise TypeError('img should be Numpy Image. Got {}'.format(type(pic)))

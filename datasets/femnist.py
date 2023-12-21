@@ -39,6 +39,7 @@ class Femnist(Dataset):
         self.transform = transform
         self.client_name = client_name
 
+
     def __getitem__(self, index: int):
         sample = self.samples[index]
         image = Image.fromarray(np.uint8(np.array(sample[0]).reshape(28, 28) * 255))

@@ -7,6 +7,8 @@ def get_parser():
                         help='Run the federated learning pipeline instead of the centralized version')
     parser.add_argument('--rotation', action='store_true', default=False,
                         help='Rotate images for domain generalization')
+    parser.add_argument('--loo', action='store_true', default=False,
+                        help='apply leave one out for domain generalization')
     parser.add_argument('--client_select', type=int, default=0, 
                         help='0:uniform distribution, 1:10% with 0.5 probability, 2:30% with 0.0001 probability')
     parser.add_argument('--seed', type=int, default=0, help='random seed')

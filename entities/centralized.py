@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset, random_split
 from torchvision import transforms
 from torchsummary import summary
+from torch import nn
 import os
 from PIL import Image
 
@@ -25,14 +26,16 @@ IMAGE_SIZE = 28
 
 class Centralized:
 
-    def __init__(self, data_path, model, optimizer, criterion, device, transforms, args):
-        self.path = data_path
+    def __init__(self, data, model, args, metrics):
+        self.data = data
         self.model = model
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.device = device
-        self.transforms = transforms
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.optimizer = torch.optim.SGD(model.parameters(),
+                                    lr=args.lr, momentum=args.m,
+                                    weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss()
         self.args = args
+        self.metrics = metrics
 
     def n_classes(self, batch):
         return batch['class'].unique().shape[0]
@@ -112,11 +115,22 @@ class Centralized:
 
         return torch_train, torch_test
 
+    def train_test_tensors_rot_ng(self, datasets):
+
+        if self.args.rotation:
+            datasets = ConcatDataset([dataset for dataset_list in datasets.values() for dataset in dataset_list])
+        # receive a tuple of objects and split in train and test
+        train_size = int(0.8 * len(datasets))
+        test_size = len(datasets) - train_size
+        # Create random train/test splits
+        train_subset, test_subset = random_split(datasets, [train_size, test_size])
+        return train_subset, test_subset
+
     def training(self, torch_train):
 
         train_loader = DataLoader(torch_train, batch_size=self.args.bs, shuffle=True)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        for epoch in range(self.args.epochs):  # loop over the dataset multiple times
+        for epoch in range(self.args.num_epochs):  # loop over the dataset multiple times
             running_loss = 0.0
             for i, data in enumerate(train_loader, 0):
                 # get the inputs; data is a list of [inputs, labels]
@@ -157,22 +171,23 @@ class Centralized:
 
 
     def pipeline(self):
-        print('loading data...')
-        out_df = self.get_data()
-        print('preprocessing')
-        # dataframe of the dataset
-        df = self.data_parser(out_df)
-        del out_df
-        print('Done')
-        # n_classes = self.n_classes(df)
-        # train and test tensors
-        if self.args.rotation:
-            print('Rotating the dataset')
-            rotated_df = self.rotatedFemnist(df)
-            del df
-            torch_train, torch_test = self.train_test_tensors(batch=rotated_df)
-        else:
-            torch_train, torch_test = self.train_test_tensors(batch=df)
+        # print('loading data...')
+        # out_df = self.get_data()
+        # print('preprocessing')
+        # # dataframe of the dataset
+        # df = self.data_parser(out_df)
+        # del out_df
+        # print('Done')
+        # # n_classes = self.n_classes(df)
+        # # train and test tensors
+        # if self.args.rotation:
+        #     print('Rotating the dataset')
+        #     rotated_df = self.rotatedFemnist(df)
+        #     del df
+        #     torch_train, torch_test = self.train_test_tensors(batch=rotated_df)
+        # else:
+        #     torch_train, torch_test = self.train_test_tensors(batch=df)
+        torch_train, torch_test = self.train_test_tensors_rot_ng(self.data)
         print('Training')
         self.training(torch_train)
         print('Done.')
@@ -180,5 +195,5 @@ class Centralized:
         val_loader = DataLoader(torch_test, batch_size=self.args.bs, shuffle=False)
         print('Validating')
         self.accuracy_of_model(val_loader)
-        print('Summary')
-        print(summary(self.model))
+        # print('Summary')
+        # print(summary(self.model))

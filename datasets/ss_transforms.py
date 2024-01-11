@@ -302,7 +302,7 @@ class Rotation(object):
         self.center = center
         self.angle = degree
 
-    def __call__(self, img, lbl):
+    def __call__(self, img, lbl=None):
         """
             img (PIL Image): Image to be rotated.
             lbl (PIL Image): Label to be rotated.

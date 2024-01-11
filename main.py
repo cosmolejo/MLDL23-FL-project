@@ -158,14 +158,13 @@ def main():
         server.train()
 
     else:
-        data_path = os.path.join('data', 'femnist', 'data', 'all_data')
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        optimizer = torch.optim.SGD(model.parameters(),
-                                    lr=args.lr, momentum=args.m , weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
-        criterion = nn.CrossEntropyLoss()
-        data_transform = transforms.ToTensor()
-        centralized = Centralized(data_path=data_path, model=model, optimizer=optimizer, criterion=criterion,
-                                  device=device, transforms=data_transform)
+        print('Generate datasets...')
+        centralized_dataset = get_datasets(args)
+        print('Done.')
+        metrics = set_metrics(args)
+        print('Creating centralized session')
+        centralized = Centralized( data=centralized_dataset, model=model, args=args, metrics=metrics)
+        print('Training start.....')
         centralized.pipeline()
 
 

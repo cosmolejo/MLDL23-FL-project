@@ -2,6 +2,7 @@ import sys
 import os
 from torchvision import transforms
 from collections import defaultdict
+from torch.utils.data import ConcatDataset
 import json
 
 path = os.getcwd()
@@ -129,22 +130,23 @@ def get_datasets(args):
                 if count < 1000:
 
                     if count <= 170:
-                        train_rotations['0'].append(Femnist(data, rot_transforms['0'], user))
+                        train_rotations['0'].append(Femnist(data, rot_transforms['0'], ''))
                     elif 170 < count <= 336:
-                        train_rotations['15'].append(Femnist(data, rot_transforms['15'], user))
+                        train_rotations['15'].append(Femnist(data, rot_transforms['15'], ''))
                     elif 336 < count <= 502:
-                        train_rotations['30'].append(Femnist(data, rot_transforms['30'], user))
+                        train_rotations['30'].append(Femnist(data, rot_transforms['30'], ''))
                     elif 502 < count <= 668:
-                        train_rotations['45'].append(Femnist(data, rot_transforms['45'], user))
+                        train_rotations['45'].append(Femnist(data, rot_transforms['45'], ''))
                     elif 668 < count <= 834:
-                        train_rotations['60'].append(Femnist(data, rot_transforms['60'], user))
+                        train_rotations['60'].append(Femnist(data, rot_transforms['60'], ''))
                     elif 834 < count:
-                        train_rotations['75'].append(Femnist(data, rot_transforms['75'], user))
+                        train_rotations['75'].append(Femnist(data, rot_transforms['75'], ''))
                     count += 1
                 else:
                     break
             return train_rotations
         else:
-            for user, data in all_data:
-                centralized_datasets.append(Femnist(data, train_transforms, user))
-            return centralized_datasets
+            for user, data in all_data.items():
+                centralized_datasets.append(Femnist(data, train_transforms, ''))
+            return ConcatDataset(centralized_datasets)
+

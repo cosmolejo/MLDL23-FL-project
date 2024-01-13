@@ -92,10 +92,11 @@ def gen_clients(args, train_datasets, test_datasets, model):
     return clients[0], clients[1]
 
 
-def gen_rot_clients(args, datasets, model, angle):
+def gen_rot_clients(args, datasets, model, angle=None):
     idx = 0
     clients = [[], []]
     if args.loo:
+        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
         for key in datasets.keys():
             if key == angle:
                 for ds in datasets[key]:
@@ -132,6 +133,37 @@ def gen_rot_clients(args, datasets, model, angle):
     print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
 
+
+def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, test_datasets=None):
+
+    metrics = set_metrics(args)
+    # print(metrics)
+    print('Gererating clients...')
+    if args.rotation:
+        if args.loo:
+            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
+        else:
+            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
+
+    else:
+        train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
+    print('Done.')
+    print('Creating server')
+    server = Server(args, train_clients, test_clients, model, metrics)
+    print('Training start.....')
+    server.train()
+
+
+def centralized_exec(args, model):
+    print('Generate datasets...')
+    centralized_dataset = get_datasets(args)
+    print('Done.')
+    metrics = set_metrics(args)
+    print('Creating centralized session')
+    centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
+    print('Training start.....')
+    centralized.pipeline()
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -144,28 +176,24 @@ def main():
 
     if args.federated:
         print('Generate datasets...')
-        train_datasets, test_datasets = get_datasets(args)
+        if args.rotation:
+            rot_dataset = get_datasets(args)
+        else:
+            train_datasets, test_datasets = get_datasets(args)
         print('Done.')
 
-        metrics = set_metrics(args)
-        # print(metrics)
-        print('Gererating clients...')
-        train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
-        print('Done.')
-        print('Creating server')
-        server = Server(args, train_clients, test_clients, model, metrics)
-        print('Training start.....')
-        server.train()
-
+        if args.loo:
+            angles = ['0', '15', '30', '45', '60', '75']
+            for a in angles:
+                print('Training Domain for angle:', a)
+                fed_exec(args, model, rot_dataset=rot_dataset, angle=a)
+        else:
+            if args.rotatation:
+                fed_exec(args, model, rot_dataset=rot_dataset)
+            else:
+                fed_exec(args, model, train_datasets=train_datasets, test_datasets=test_datasets)
     else:
-        print('Generate datasets...')
-        centralized_dataset = get_datasets(args)
-        print('Done.')
-        metrics = set_metrics(args)
-        print('Creating centralized session')
-        centralized = Centralized( data=centralized_dataset, model=model, args=args, metrics=metrics)
-        print('Training start.....')
-        centralized.pipeline()
+        centralized_exec(args, model)
 
 
 if __name__ == '__main__':

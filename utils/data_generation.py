@@ -4,6 +4,7 @@ from torchvision import transforms
 from collections import defaultdict
 from torch.utils.data import ConcatDataset
 import json
+from tqdm import tqdm
 
 path = os.getcwd()
 if 'kaggle' not in path:
@@ -21,7 +22,7 @@ def read_femnist_dir(data_dir):
     data = defaultdict(lambda: {})
     files = os.listdir(data_dir)
     files = [f for f in files if f.endswith('.json')]
-    for f in files:
+    for f in tqdm(files):
         file_path = os.path.join(data_dir, f)
         with open(file_path, 'r') as inf:
             cdata = json.load(inf)
@@ -29,12 +30,18 @@ def read_femnist_dir(data_dir):
     return data
 
 
-def read_femnist_data(train_data_dir, test_data_dir=None):
+def read_femnist_data(train_data_dir, test_data_dir=None, args=None):
     """
     If only one directory was given, the function returns the
     all_data folder content
     """
     if test_data_dir:
+        if args.rotation:
+            data = read_femnist_dir(train_data_dir)
+            data_test = read_femnist_dir(test_data_dir)
+            for key, val in data_test.items():
+                data[key] = val
+            return data
         return read_femnist_dir(train_data_dir), read_femnist_dir(test_data_dir)
     else:
         return read_femnist_dir(train_data_dir)
@@ -74,7 +81,11 @@ def get_datasets(args):
         niid = args.niid
         train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
         test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
-        train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
+
+        if args.rotation:
+            train_data = read_femnist_data(train_data_dir, test_data_dir, args)
+        else:
+            train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
 
         if args.rotation:
             train_rotations = {

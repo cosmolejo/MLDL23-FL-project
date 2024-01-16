@@ -3,7 +3,6 @@ import pprint
 import random
 import sys
 
-
 import numpy as np
 import torch
 from torch import nn
@@ -22,6 +21,7 @@ from utils.args import get_parser
 from models.cnn import CNN
 from utils.stream_metrics import StreamSegMetrics, StreamClsMetrics
 from utils.data_generation import *
+
 
 def set_seed(random_seed):
     random.seed(random_seed)
@@ -58,6 +58,7 @@ def model_init(args):
     else:
         raise NotImplementedError
 
+
 ###########################################
 ## Moved read_femnist_dir, read_femnist_data,
 ## get_transforms and get_datasets into utils.utils
@@ -80,15 +81,22 @@ def set_metrics(args):
 def gen_clients(args, train_datasets, test_datasets, model):
     clients = [[], []]
     # define loss function criterion = nn.CrossEntropyLoss()
-    idx = 0 
+    idx = 0
     for i, datasets in enumerate([train_datasets, test_datasets]):
         for ds in datasets:
             clients[i].append(Client(args, ds, model,
-                                     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr),
+                                     optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
                                      idx=idx, test_client=i == 1)
                               )
             idx += 1
-    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
+
+    total_train_data = 0
+    for c in clients[0]:
+        total_train_data += c.get_total_train()
+    for c in clients[0]:
+        c.set_pk(total_train_data)
+
+    print(f'Clients: Train {len(clients[0])}, Test {len(clients[1])}')
     return clients[0], clients[1]
 
 
@@ -96,7 +104,6 @@ def gen_rot_clients(args, datasets, model, angle=None):
     idx = 0
     clients = [[], []]
     if args.loo:
-        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
         for key in datasets.keys():
             if key == angle:
                 for ds in datasets[key]:
@@ -116,26 +123,24 @@ def gen_rot_clients(args, datasets, model, angle=None):
         indices = list(range(1000))
         sample = random.sample(indices, 700)
         split = [False if i not in sample else True for i in indices]
-
         for key in datasets.keys():
             for ds in datasets[key]:
                 if split[idx]:
-                    clients[0].append(Client(args, ds, model,
+                    clients[0].append(Client(args=args, dataset=ds, model=model,
                                              optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
                                              idx=idx, test_client=False)
                                       )
                 else:
-                    clients[1].append(Client(args, ds, model,
+                    clients[1].append(Client(args=args, dataset=ds, model=model,
                                              optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
                                              idx=idx, test_client=True)
                                       )
                 idx += 1
-    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
+    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')  # delete later
     return clients[0], clients[1]
 
 
 def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, test_datasets=None):
-
     metrics = set_metrics(args)
     # print(metrics)
     print('Gererating clients...')
@@ -144,7 +149,6 @@ def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, tes
             train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
         else:
             train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
-
     else:
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
     print('Done.')
@@ -163,6 +167,7 @@ def centralized_exec(args, model):
     centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
     print('Training start.....')
     centralized.pipeline()
+
 
 def main():
     parser = get_parser()
@@ -188,7 +193,7 @@ def main():
                 print('Training Domain for angle:', a)
                 fed_exec(args, model, rot_dataset=rot_dataset, angle=a)
         else:
-            if args.rotatation:
+            if args.rotation:
                 fed_exec(args, model, rot_dataset=rot_dataset)
             else:
                 fed_exec(args, model, train_datasets=train_datasets, test_datasets=test_datasets)
@@ -209,4 +214,3 @@ if __name__ == '__main__':
         from femnist import Femnist
 
     main()
-

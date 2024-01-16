@@ -85,7 +85,7 @@ def get_datasets(args):
         if args.rotation:
             train_data = read_femnist_data(train_data_dir, test_data_dir, args)
         else:
-            train_data, test_data = read_femnist_data(train_data_dir, test_data_dir)
+            train_data, test_data = read_femnist_data(train_data_dir, test_data_dir, args)
 
         if args.rotation:
             train_rotations = {
@@ -160,4 +160,3 @@ def get_datasets(args):
             for user, data in all_data.items():
                 centralized_datasets.append(Femnist(data, train_transforms, ''))
             return ConcatDataset(centralized_datasets)
-

@@ -104,6 +104,7 @@ def gen_rot_clients(args, datasets, model, angle=None):
     idx = 0
     clients = [[], []]
     if args.loo:
+        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
         for key in datasets.keys():
             if key == angle:
                 for ds in datasets[key]:
@@ -123,20 +124,21 @@ def gen_rot_clients(args, datasets, model, angle=None):
         indices = list(range(1000))
         sample = random.sample(indices, 700)
         split = [False if i not in sample else True for i in indices]
+
         for key in datasets.keys():
             for ds in datasets[key]:
                 if split[idx]:
-                    clients[0].append(Client(args=args, dataset=ds, model=model,
+                    clients[0].append(Client(args, ds, model,
                                              optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
                                              idx=idx, test_client=False)
                                       )
                 else:
-                    clients[1].append(Client(args=args, dataset=ds, model=model,
+                    clients[1].append(Client(args, ds, model,
                                              optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
                                              idx=idx, test_client=True)
                                       )
                 idx += 1
-    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')  # delete later
+    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
 
 
@@ -149,6 +151,7 @@ def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, tes
             train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
         else:
             train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
+
     else:
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
     print('Done.')

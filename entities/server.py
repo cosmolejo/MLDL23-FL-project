@@ -21,7 +21,8 @@ class Server:
         self.metrics = metrics
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
 
-    def select_clients(self, r, update=None, m=None):
+    def select_clients(self, r, update=None, m=None, list_client10=None, list_client90=None, list_p10=None,
+                       list_p90=None):
         '''
         This method returns an array with the selected clients for the current round
         The way selection is done is by only considering the min number between
@@ -37,11 +38,6 @@ class Server:
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
-            n10perc = math.ceil(len(self.train_clients) * 0.1)
-            list_client10 = self.train_clients[:n10perc]
-            list_client90 = self.train_clients[n10perc:]
-            list_p10 = [1 / n10perc] * n10perc
-            list_p90 = [1 / (len(self.train_clients) - n10perc)] * (len(self.train_clients) - n10perc)
             sel_clients = []
             i = 0
             while i != (num_clients):
@@ -62,11 +58,6 @@ class Server:
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
-            n30perc = math.ceil(len(self.train_clients) * 0.3)
-            list_client10 = self.train_clients[:n30perc]
-            list_client90 = self.train_clients[n30perc:]
-            list_p10 = [1 / n30perc] * n30perc
-            list_p90 = [1 / (len(self.train_clients) - n30perc)] * (len(self.train_clients) - n30perc)
             sel_clients = []
             i = 0
             while i != (num_clients):
@@ -82,24 +73,23 @@ class Server:
                         i += 1
 
         elif self.args.client_select == 3:
-            num_clients = min(self.args.clients_per_round, len(self.train_clients))  # d = clients_per_round
+            num_clients = min(self.args.clients_per_round, len(self.train_clients))
             sel_clients = []
+            look_loss = []
             list_pk = list()
             for c in self.train_clients:
                 list_pk.append(c.get_pk())
-            if r == 0:
-                sel_clients = np.random.choice(self.train_clients, num_clients, p=list_pk, replace=False)
-            else:
-                selected_D = random.sample(update, self.args.d_clients)
-                update = sorted(selected_D, key=lambda x: x[2], reverse=True)
-                for sel_c in update:
-                    print(f'D randomly selected C highest loss: {sel_c[3].idx}')
-                selected_for_loss = update[:m]  # selected based on the highest loss
-                sel_clients = np.random.choice(self.train_clients, num_clients - m, p=list_pk,
-                                               replace=False)  # selected based on the pk the remaining 10-m
-                for sel_c in selected_for_loss:
-                    sel_clients = np.append(sel_clients, sel_c[3])
-                    print(f'm selected C highest loss: {sel_c[3].idx}')
+            sel_clients = np.random.choice(self.train_clients, num_clients, p=list_pk, replace=False)
+            for sel_c in sel_clients:
+                loss, _ = sel_c.no_optim()
+                look_loss.append((sel_c, loss))
+            look_loss = sorted(look_loss, key=lambda l: l[1], reverse=True)
+            for i in look_loss:
+                print(f'client {i[0].idx}, with loss {i[1]}')
+            sel_clients = []
+            for i in range(self.args.power_of_choice_m):
+                sel_clients.append(look_loss[i][0])
+                print(f'select clients {look_loss[i][0].idx}, with loss {look_loss[i][1]}')
 
             # print(f'update:{update}')
             print(f'len clients:{len(sel_clients)}')
@@ -169,13 +159,43 @@ class Server:
         print(f'Your m in {m}')
         print(f'The K is {len(self.train_clients)}')
 
+        list_client10 = None
+        list_client90 = None
+        list_p10 = None
+        list_p90 = None
+
+        if self.args.client_select == 1:
+            """
+            with 10% of clients being selected with probability 0.5 at each round
+            with 30% of clients being selected with probability 0.0001 at each round
+            """
+            n10perc = math.ceil(len(self.train_clients) * 0.1)
+            list_client10 = self.train_clients[:n10perc]
+            list_client90 = self.train_clients[n10perc:]
+            list_p10 = [1 / n10perc] * n10perc
+            list_p90 = [1 / (len(self.train_clients) - n10perc)] * (len(self.train_clients) - n10perc)
+
+        if self.args.client_select == 2:
+            num_clients = min(self.args.clients_per_round, len(self.train_clients))
+            """
+            with 10% of clients being selected with probability 0.5 at each round
+            with 30% of clients being selected with probability 0.0001 at each round
+            """
+            n30perc = math.ceil(len(self.train_clients) * 0.3)
+            list_client10 = self.train_clients[:n30perc]
+            list_client90 = self.train_clients[n30perc:]
+            list_p10 = [1 / n30perc] * n30perc
+            list_p90 = [1 / (len(self.train_clients) - n30perc)] * (len(self.train_clients) - n30perc)
+
         for r in range(self.args.num_rounds):
             # our addition
             # take selected clients
             if r == 0:
-                sel_clients = self.select_clients(r)
+                sel_clients = self.select_clients(r, list_client10=list_client10, list_client90=list_client90,
+                                                  list_p10=list_p10, list_p90=list_p90)
             else:
-                sel_clients = self.select_clients(r, update=train_sel_c, m=m)
+                sel_clients = self.select_clients(r, update=train_sel_c, m=m, list_client10=list_client10,
+                                                  list_client90=list_client90, list_p10=list_p10, list_p90=list_p90)
 
             if r != 0:
                 self.update_clients_model(aggregated_params=aggregated_params)

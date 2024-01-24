@@ -23,3 +23,8 @@ ipython_config.py
 
 __pychache__/*
 /data/
+
+*.ipynb
+
+*.json
+reqs.txt

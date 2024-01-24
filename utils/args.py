@@ -16,6 +16,8 @@ def get_parser():
     parser.add_argument('--structured', type=bool, default=False,
                         help='Structured pruning, False unstructured')
     parser.add_argument('--amount_prune', type=float, default=0.2, help='Amount to prune')
+    parser.add_argument('--tuning', type=bool, default=False,
+                        help='Structured pruning, False unstructured')
 
     parser.add_argument('--power_of_choice_m', type=int, default=1,
                         help="The m=c*K in power of choices algorithm which will be half of d")

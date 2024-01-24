@@ -31,8 +31,8 @@ class Centralized:
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.optimizer = torch.optim.SGD(model.parameters(),
-                                    lr=args.lr, momentum=args.m,
-                                    weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
+                                         lr=args.lr, momentum=args.m,
+                                         weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
         self.criterion = nn.CrossEntropyLoss()
         self.args = args
         self.metrics = metrics
@@ -130,6 +130,7 @@ class Centralized:
 
         train_loader = DataLoader(torch_train, batch_size=self.args.bs, shuffle=True)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        train_loss_avg = []
         for epoch in range(self.args.num_epochs):  # loop over the dataset multiple times
             running_loss = 0.0
             for i, data in enumerate(train_loader, 0):
@@ -149,7 +150,9 @@ class Centralized:
                 if i % 2000 == 1999:  # print every 2000 mini-batches
                     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                     running_loss = 0.0
+            train_loss_avg.append(running_loss)
         print('Finished Training')
+        return train_loss_avg
 
     def accuracy_of_model(self, val_loader):
         correct = 0
@@ -165,10 +168,9 @@ class Centralized:
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-
-        print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
-
-
+        accuracy = 100 * correct // total
+        print(f'Accuracy of the network on the 10000 test images: {accuracy} %')
+        return accuracy
 
     def pipeline(self):
         # print('loading data...')
@@ -189,11 +191,17 @@ class Centralized:
         #     torch_train, torch_test = self.train_test_tensors(batch=df)
         torch_train, torch_test = self.train_test_tensors_rot_ng(self.data)
         print('Training')
-        self.training(torch_train)
+        train_loss_avg = self.training(torch_train)
         print('Done.')
         # printing accuracy
         val_loader = DataLoader(torch_test, batch_size=self.args.bs, shuffle=False)
         print('Validating')
-        self.accuracy_of_model(val_loader)
+        accuracy = self.accuracy_of_model(val_loader)
+        """
+        train_dict = {'Epochs': np.array(range(args.epochs)),'Train Loss Average' : np.array(train_loss_avg),'Test Loss': np.array(test_loss_avg), 'Test accuracy': np.array(test_accuracy)}
+        train_csv = pd.DataFrame(train_dict)
+        train_csv.to_csv(f'FedAVG_{args.local_ep}_local_ep_Norm:{args.norm_layer}_iid:{args.iid}_lr:{args.lr}_mom:{args.momentum}_epochs:{args.epochs}.csv', index = False)
+        """
+
         # print('Summary')
         # print(summary(self.model))

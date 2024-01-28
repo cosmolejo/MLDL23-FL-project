@@ -50,4 +50,6 @@ def get_parser():
     parser.add_argument('--print_test_interval', type=int, default=10, help='client print test interval')
     parser.add_argument('--eval_interval', type=int, default=10, help='eval interval')
     parser.add_argument('--test_interval', type=int, default=10, help='test interval')
+    parser.add_argument('--num_classes', type=int, default=62, help='number of classes')
+    parser.add_argument('--fedSR', action='store_true', default=False, help='FedSR algorithm implementation')
     return parser

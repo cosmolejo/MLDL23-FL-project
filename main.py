@@ -11,14 +11,18 @@ from torchvision.models import resnet18
 sys.path.append('datasets')
 
 from entities.client import Client
+from entities.client_domain import Client as Client_domain
 
 from entities.centralized import Centralized
-from torchvision import transforms
+from entities.centralized_domain import Centralized as Centralized_domain
 
 from entities.server import Server
+
+
 from utils.args import get_parser
 
 from models.cnn import CNN
+from models.cnn_domain import CNN as CNN_domain
 from utils.stream_metrics import StreamSegMetrics, StreamClsMetrics
 from utils.data_generation import *
 
@@ -45,15 +49,12 @@ def model_init(args):
     if args.model == 'deeplabv3_mobilenetv2':
         return deeplabv3_mobilenetv2(num_classes=get_dataset_num_classes(args.dataset))
     """
-    if args.model == 'resnet18':
-        model = resnet18()
-        model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-        model.fc = nn.Linear(in_features=512, out_features=get_dataset_num_classes(args.dataset))
-        return model
 
     if args.model == 'cnn':
-
-        model = CNN(get_dataset_num_classes('femnist'))
+        if args.rotation:
+            model = CNN_domain(get_dataset_num_classes('femnist'))
+        else:
+            model = CNN(get_dataset_num_classes('femnist'))
         return model
     else:
         raise NotImplementedError
@@ -141,6 +142,46 @@ def gen_rot_clients(args, datasets, model, angle=None):
     print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
 
+def gen_rot_clients_fedsr(args, datasets, model, angle=None):
+    idx = 0
+    clients = [[], []]
+    if args.loo:
+        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
+        for key in datasets.keys():
+            if key == angle:
+                for ds in datasets[key]:
+                    clients[1].append(Client_domain(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=True)
+                                      )
+                    idx += 1
+            else:
+                for ds in datasets[key]:
+                    clients[0].append(Client_domain(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=False)
+                                      )
+                    idx += 1
+    else:
+        indices = list(range(1000))
+        sample = random.sample(indices, 700)
+        split = [False if i not in sample else True for i in indices]
+
+        for key in datasets.keys():
+            for ds in datasets[key]:
+                if split[idx]:
+                    clients[0].append(Client_domain(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=False)
+                                      )
+                else:
+                    clients[1].append(Client_domain(args, ds, model,
+                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                             idx=idx, test_client=True)
+                                      )
+                idx += 1
+    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
+    return clients[0], clients[1]
 
 def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, test_datasets=None):
     metrics = set_metrics(args)
@@ -148,9 +189,16 @@ def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, tes
     print('Gererating clients...')
     if args.rotation:
         if args.loo:
-            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
+            if args.fedSR:
+                train_clients, test_clients = gen_rot_clients_fedsr(args, rot_dataset, model, angle)
+            else:
+                train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
+
         else:
-            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
+            if args.fedSR:
+                train_clients, test_clients = gen_rot_clients_fedsr(args, rot_dataset, model)
+            else:
+                train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
 
     else:
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
@@ -167,7 +215,10 @@ def centralized_exec(args, model):
     print('Done.')
     metrics = set_metrics(args)
     print('Creating centralized session')
-    centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
+    if args.rotation:
+        centralized = Centralized_domain(data=centralized_dataset, model=model, args=args, metrics=metrics)
+    else:
+        centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
     print('Training start.....')
     centralized.pipeline()
 

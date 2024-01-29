@@ -1,18 +1,15 @@
 import json
+import os
+import sys
 
 import numpy as np
 import pandas as pd
 import torch
+from PIL import Image
 from sklearn.model_selection import train_test_split
+from torch import nn
 from torch.utils.data import DataLoader, ConcatDataset, random_split
 from torchvision import transforms
-from torchsummary import summary
-from torch import nn
-import os
-from PIL import Image
-
-import os
-import sys
 
 path = os.getcwd()
 if 'kaggle' not in path:
@@ -173,22 +170,7 @@ class Centralized:
         return accuracy
 
     def pipeline(self):
-        # print('loading data...')
-        # out_df = self.get_data()
-        # print('preprocessing')
-        # # dataframe of the dataset
-        # df = self.data_parser(out_df)
-        # del out_df
-        # print('Done')
-        # # n_classes = self.n_classes(df)
-        # # train and test tensors
-        # if self.args.rotation:
-        #     print('Rotating the dataset')
-        #     rotated_df = self.rotatedFemnist(df)
-        #     del df
-        #     torch_train, torch_test = self.train_test_tensors(batch=rotated_df)
-        # else:
-        #     torch_train, torch_test = self.train_test_tensors(batch=df)
+
         torch_train, torch_test = self.train_test_tensors_rot_ng(self.data)
         print('Training')
         train_loss_avg = self.training(torch_train)
@@ -197,11 +179,14 @@ class Centralized:
         val_loader = DataLoader(torch_test, batch_size=self.args.bs, shuffle=False)
         print('Validating')
         accuracy = self.accuracy_of_model(val_loader)
-        """
-        train_dict = {'Epochs': np.array(range(args.epochs)),'Train Loss Average' : np.array(train_loss_avg),'Test Loss': np.array(test_loss_avg), 'Test accuracy': np.array(test_accuracy)}
+
+        train_dict = {'Epochs': np.array(range(self.args.num_epochs)),
+                      'Train Loss Average': np.array(train_loss_avg),
+                      'Test accuracy': np.array(accuracy)}
         train_csv = pd.DataFrame(train_dict)
-        train_csv.to_csv(f'FedAVG_{args.local_ep}_local_ep_Norm:{args.norm_layer}_iid:{args.iid}_lr:{args.lr}_mom:{args.momentum}_epochs:{args.epochs}.csv', index = False)
-        """
+        train_csv.to_csv(
+            f'FedAVG_lr:{self.args.lr}_mom:{self.args.m}_epochs:{self.args.num_epochs}_bs:{self.args.bs}_seed:{self.args.seed}.csv',
+            index=False)
 
         # print('Summary')
         # print(summary(self.model))

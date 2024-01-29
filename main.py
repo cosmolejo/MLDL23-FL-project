@@ -215,7 +215,7 @@ def centralized_exec(args, model):
     print('Done.')
     metrics = set_metrics(args)
     print('Creating centralized session')
-    if args.rotation:
+    if args.fedSR:
         centralized = Centralized_domain(data=centralized_dataset, model=model, args=args, metrics=metrics)
     else:
         centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)

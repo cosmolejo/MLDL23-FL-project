@@ -230,14 +230,14 @@ class Server:
 
         if self.args.tuning == True:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
-                          'Test accuracy': np.array(test_accuracy)}
+                          'Test accuracy': np.array(test_accuracyp)}
             train_csv = pd.DataFrame(train_dict)
             train_csv.to_csv(
                 f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}.csv',
                 index=False)
         else:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
-                          'Test accuracy': np.array(test_accuracy)}
+                          'Test accuracy': np.array(test_accuracyp)}
             train_csv = pd.DataFrame(train_dict)
             train_csv.to_csv(
                 f'Federated_Non-IID:{self.args.niid}_clientSelection:{self.args.client_select}_powerOfChoicesM:{self.args.power_of_choice_m}_prune:{self.args.prune}_conv:{self.args.conv}_linear:{self.args.linear}_strucured{self.args.structured}_amount_prune:{self.args.amount_prune}.csv',

@@ -52,4 +52,5 @@ def get_parser():
     parser.add_argument('--test_interval', type=int, default=10, help='test interval')
     parser.add_argument('--num_classes', type=int, default=62, help='number of classes')
     parser.add_argument('--fedSR', action='store_true', default=False, help='FedSR algorithm implementation')
+    parser.add_argument('--all_data', action='store_true', default=False, help='Force all_data in domain generalization')
     return parser

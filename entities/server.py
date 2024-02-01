@@ -233,7 +233,7 @@ class Server:
                           'Test accuracy': np.array(test_accuracyp)}
             train_csv = pd.DataFrame(train_dict)
             train_csv.to_csv(
-                f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}.csv',
+                f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}_rounds:{self.args.num_rounds}.csv',
                 index=False)
         else:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
@@ -253,7 +253,7 @@ class Server:
         with torch.no_grad():
             for client in clients:
                 client.model.load_state_dict(aggregated_params)
-                client_samples, client_correct = client.test(self.metrics, 'eval_train')
+                client_samples, client_correct = client.test()
                 total_correct += client_correct
                 total_samples += client_samples
         accuracy = total_correct / total_samples
@@ -270,7 +270,7 @@ class Server:
         with torch.no_grad():
             for client in test_client:  # we select randomly args.clients_test for testing the model.
                 client.model.load_state_dict(aggregated_params)
-                client_samples, client_correct = client.test(self.metrics, 'test')
+                client_samples, client_correct = client.test()
                 total_correct += client_correct
                 total_samples += client_samples
         accuracy = total_correct / total_samples

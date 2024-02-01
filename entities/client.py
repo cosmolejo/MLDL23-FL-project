@@ -32,12 +32,12 @@ class Client:
     def __str__(self):
         return self.idx
 
-    @staticmethod
-    def update_metric(metric, outputs, labels, key):
-        _, prediction = outputs.max(dim=1)
-        labels = labels.cpu().numpy()
-        prediction = prediction.cpu().numpy()
-        metric[key].update(labels, prediction)
+    # @staticmethod
+    # def update_metric(metric, outputs, labels, key):
+    #     _, prediction = outputs.max(dim=1)
+    #     labels = labels.cpu().numpy()
+    #     prediction = prediction.cpu().numpy()
+    #     metric[key].update(labels, prediction)
 
     def _get_outputs(self, images):
         if self.args.model == 'deeplabv3_mobilenetv2':
@@ -182,7 +182,7 @@ class Client:
         accuracy = tot_correct_predictions / self.len_dataset * 100
         return loss_for_this_epoch, accuracy
 
-    def test(self, metric, key):
+    def test(self):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
@@ -201,7 +201,6 @@ class Client:
                 total += labels.size(0)
                 correct += torch.eq(predicted, labels).sum().item()
 
-                self.update_metric(metric, outputs, labels, key)
         return total, correct
 
     def get_pk(self):

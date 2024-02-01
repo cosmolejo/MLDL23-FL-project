@@ -74,60 +74,17 @@ def get_datasets(args):
     else:
         rot_transforms = get_transforms(args)
 
+    niid = args.niid
     train_datasets, test_datasets = [], []
-
-    if args.federated:
-        # elif args.dataset == 'femnist':
-        niid = args.niid
-        train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
-        test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
-
+    train_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'train')
+    test_data_dir = os.path.join('data', 'femnist', 'data', 'niid' if niid else 'iid', 'test')
+    all_data_dir = os.path.join('data', 'femnist', 'data', 'all_data')
+    if args.rotation:
         if args.rotation:
-            train_data = read_femnist_data(train_data_dir, test_data_dir, args)
-        else:
-            train_data, test_data = read_femnist_data(train_data_dir, test_data_dir, args)
-
-        if args.rotation:
-            train_rotations = {
-                '0':  [],
-                '15': [],
-                '30': [],
-                '45': [],
-                '60': [],
-                '75': []
-            }
-            count = 0
-            for user, data in train_data.items():
-                if count < 1000:
-
-                    if count <= 170:
-                        train_rotations['0'].append(Femnist(data, rot_transforms['0'], user))
-                    elif 170 < count <= 336:
-                        train_rotations['15'].append(Femnist(data, rot_transforms['15'], user))
-                    elif 336 < count <= 502:
-                        train_rotations['30'].append(Femnist(data, rot_transforms['30'], user))
-                    elif 502 < count <= 668:
-                        train_rotations['45'].append(Femnist(data, rot_transforms['45'], user))
-                    elif 668 < count <= 834:
-                        train_rotations['60'].append(Femnist(data, rot_transforms['60'], user))
-                    elif 834 < count:
-                        train_rotations['75'].append(Femnist(data, rot_transforms['75'], user))
-                    count += 1
-                else:
-                    break
-            return train_rotations
-        else:
-            for user, data in train_data.items():
-                train_datasets.append(Femnist(data, train_transforms, user))
-            for user, data in test_data.items():
-                test_datasets.append(Femnist(data, test_transforms, user))
-
-        return train_datasets, test_datasets
-    else:
-        all_data_dir = os.path.join('data', 'femnist', 'data', 'all_data')
-        all_data = read_femnist_data(all_data_dir)
-        centralized_datasets = []
-        if args.rotation:
+            if args.all_data:
+                train_data = read_femnist_data(all_data_dir)
+            else:
+                train_data = read_femnist_data(train_data_dir, test_data_dir, args)
             train_rotations = {
                 '0': [],
                 '15': [],
@@ -137,7 +94,7 @@ def get_datasets(args):
                 '75': []
             }
             count = 0
-            for user, data in all_data.items():
+            for user, data in train_data.items():
                 if count < 1000:
 
                     if count <= 170:
@@ -156,7 +113,25 @@ def get_datasets(args):
                 else:
                     break
             return train_rotations
-        else:
-            for user, data in all_data.items():
-                centralized_datasets.append(Femnist(data, train_transforms, ''))
-            return ConcatDataset(centralized_datasets)
+
+    if args.federated:
+        # elif args.dataset == 'femnist':
+
+        train_data, test_data = read_femnist_data(train_data_dir, test_data_dir, args)
+
+
+        for user, data in train_data.items():
+            train_datasets.append(Femnist(data, train_transforms, user))
+        for user, data in test_data.items():
+            test_datasets.append(Femnist(data, test_transforms, user))
+
+        return train_datasets, test_datasets
+    else:
+
+        centralized_datasets = []
+
+        all_data_dir = os.path.join('data', 'femnist', 'data', 'all_data')
+        all_data = read_femnist_data(all_data_dir)
+        for user, data in all_data.items():
+            centralized_datasets.append(Femnist(data, train_transforms, ''))
+        return ConcatDataset(centralized_datasets)

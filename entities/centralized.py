@@ -6,11 +6,10 @@ import numpy as np
 import pandas as pd
 import torch
 torch.set_warn_always(False)
-from PIL import Image
-from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import DataLoader, ConcatDataset, random_split
-from torchvision import transforms
+
+from models.asam import  ASAM, SAM
 
 path = os.getcwd()
 if 'kaggle' not in path:
@@ -28,9 +27,11 @@ class Centralized:
         self.data = data
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.optimizer = torch.optim.SGD(model.parameters(),
+        self.base_optimizer = torch.optim.SGD(model.parameters(),
                                          lr=args.lr, momentum=args.m,
                                          weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
+
+        self.optimizer = ASAM(optimizer=self.base_optimizer, model=self.model, rho=0.5, eta=0.01)
         self.criterion = nn.CrossEntropyLoss()
         self.args = args
         self.metrics = metrics
@@ -82,12 +83,15 @@ class Centralized:
                 inputs, labels = data
                 inputs, labels = inputs.cuda(), labels.cuda()
                 # zero the parameter gradients
-                self.optimizer.zero_grad()
+                self.optimizer.ascent_step()
+
                 # forward + backward + optimize
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
+
                 loss.backward()
-                self.optimizer.step()
+
+                self.optimizer.descent_step()
 
                 # print statistics
                 running_loss += loss.item()

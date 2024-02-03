@@ -44,7 +44,6 @@ class Femnist(Dataset):
         sample = self.samples[index]
         image = Image.fromarray(np.uint8(np.array(sample[0]).reshape(28, 28) * 255))
         label = sample[1]
-
         if self.transform is not None:
             image = self.transform(np.array(image))
 

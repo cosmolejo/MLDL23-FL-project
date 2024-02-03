@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
+torch.set_warn_always(False)
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from torch import nn
@@ -23,7 +24,7 @@ IMAGE_SIZE = 28
 
 class Centralized:
 
-    def __init__(self, data, model, args, metrics):
+    def __init__(self, data, model, args, metrics, angle=None, data_test_loo=None):
         self.data = data
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -33,26 +34,12 @@ class Centralized:
         self.criterion = nn.CrossEntropyLoss()
         self.args = args
         self.metrics = metrics
+        if angle:
+            self.angle = angle
+            self.data_test = data_test_loo
 
     def n_classes(self, batch):
         return batch['class'].unique().shape[0]
-
-    def data_parser(self, df):
-        """
-        takes a dataframe sorted by writers and unpacks the data
-        return: dataframe with two columns [img,class]
-        """
-        transpose = df.T
-        out_dict = dict()
-        idx = 0
-        for _, row in transpose.iterrows():
-            row_x = row.x
-            for i, val in enumerate(row.y):
-                out_dict[idx] = [np.array(row_x[i], dtype=np.float16), val]
-                idx += 1
-        out_df = pd.DataFrame(out_dict).T
-        out_df = out_df.rename(columns={0: 'img', 1: 'class'})
-        return out_df
 
     def get_data(self):
         df = pd.DataFrame()
@@ -68,59 +55,19 @@ class Centralized:
         df = df.rename(index={0: "x", 1: "y"})
         return df
 
-    def rotatedFemnist(self, dataframe):
-        rotated_images = []
-        rotated_labels = []
-        for index, row in dataframe.iterrows():
-            image_array = row[0]  # Assuming the image arrays are in the first column
-            label = row[1]  # Assuming the labels are in the second column
-            if image_array.shape != (784,):
-                print(f"Skipping row {index} due to incorrect array shape: {image_array.shape}")
-                continue
-
-            # Convert the 1D array to a 2D array (28x28 image assuming size is 784)
-            image_matrix = image_array.reshape(28, 28)
-
-            # Randomly choose rotation angle from [0, 15, 30, 45, 60, 75]
-            angle = np.random.choice([0, 15, 30, 45, 60, 75])
-            # Rotate the image using PIL
-            image_matrix = (image_matrix * 255).astype(np.uint8)
-
-            rotated_image = Image.fromarray(image_matrix)
-            rotated_image = rotated_image.rotate(angle)
-
-            # Convert the rotated image back to a numpy array
-            rotated_array = np.array(rotated_image, dtype=np.float32).flatten() / 255.0
-
-            rotated_images.append(rotated_array)
-            rotated_labels.append(label)
-
-        # Create a new DataFrame with rotated images and labels
-        rotated_df = pd.DataFrame({'img': rotated_images, 'class': rotated_labels})
-
-        return rotated_df
-
-    def train_test_tensors(self, batch):
-        convert_tensor = transforms.ToTensor()
-        X_train, X_val, y_train, y_val = train_test_split(batch['img'], batch['class'], test_size=0.2, random_state=42)
-        torch_train = Femnist(
-            {'x': X_train.tolist(), 'y': y_train.tolist()},
-            self.transforms, '')
-        torch_test = Femnist(
-            {'x': X_val.tolist(), 'y': y_val.tolist()},
-            self.transforms, '')
-
-        return torch_train, torch_test
-
     def train_test_tensors_rot_ng(self, datasets):
+        if self.args.loo:
 
-        if self.args.rotation:
-            datasets = ConcatDataset([dataset for dataset_list in datasets.values() for dataset in dataset_list])
-        # receive a tuple of objects and split in train and test
-        train_size = int(0.8 * len(datasets))
-        test_size = len(datasets) - train_size
-        # Create random train/test splits
-        train_subset, test_subset = random_split(datasets, [train_size, test_size])
+            train_subset = self.data #for dataset_list in self.data.values() for dataset in dataset_list
+            test_subset = self.data_test#values() for dataset in dataset_list
+        else:
+            if self.args.rotation:
+                datasets = ConcatDataset([dataset for dataset_list in datasets.values() for dataset in dataset_list])
+            # receive a tuple of objects and split in train and test
+            train_size = int(0.8 * len(datasets))
+            test_size = len(datasets) - train_size
+            # Create random train/test splits
+            train_subset, test_subset = random_split(datasets, [train_size, test_size])
         return train_subset, test_subset
 
     def training(self, torch_train):
@@ -144,7 +91,7 @@ class Centralized:
 
                 # print statistics
                 running_loss += loss.item()
-                if i % 2000 == 1999:  # print every 2000 mini-batches
+                if i % 200 == 199:  # print every 2000 mini-batches
                     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                     running_loss = 0.0
             train_loss_avg.append(running_loss)
@@ -184,9 +131,14 @@ class Centralized:
                       'Train Loss Average': np.array(train_loss_avg),
                       'Test accuracy': np.array(accuracy)}
         train_csv = pd.DataFrame(train_dict)
-        train_csv.to_csv(
-            f'FedAVG_lr:{self.args.lr}_mom:{self.args.m}_epochs:{self.args.num_epochs}_bs:{self.args.bs}_seed:{self.args.seed}.csv',
-            index=False)
+        if self.args.loo:
+            train_csv.to_csv(
+                f'FedAVG_lr:{self.args.lr}_mom:{self.args.m}_epochs:{self.args.num_epochs}_bs:{self.args.bs}_seed:{self.args.seed}_angle:{self.angle}.csv',
+                index=False)
+        else:
+            train_csv.to_csv(
+                f'FedAVG_lr:{self.args.lr}_mom:{self.args.m}_epochs:{self.args.num_epochs}_bs:{self.args.bs}_seed:{self.args.seed}.csv',
+                index=False)
 
         # print('Summary')
         # print(summary(self.model))

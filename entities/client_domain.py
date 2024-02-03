@@ -22,18 +22,18 @@ class Client:
         self.name = self.dataset.client_name
         self.model = model
         self.idx = idx
-        self.z_dim=int(3136)
-        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs,shuffle=True) if not test_client else None  # ,drop_last=True
+        self.z_dim = int(3136)
+        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs,
+                                       shuffle=True) if not test_client else None  # ,drop_last=True
         self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
         self.optimizer = optimizer
         self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
         self.reduction = HardNegativeMining() if self.args.hnm else MeanReduction()
         self.len_dataset = len(self.dataset)
         self.pk = None
-        self.r_mu = nn.Parameter(torch.zeros(args.num_classes,int(self.z_dim/2))).cuda()
-        self.r_sigma = nn.Parameter(torch.ones(args.num_classes,int(self.z_dim/2))).cuda()
+        self.r_mu = nn.Parameter(torch.zeros(args.num_classes, int(self.z_dim / 2))).cuda()
+        self.r_sigma = nn.Parameter(torch.ones(args.num_classes, int(self.z_dim / 2))).cuda()
         self.C = nn.Parameter(torch.ones([]))
-
 
     def __str__(self):
         return self.idx
@@ -51,42 +51,40 @@ class Client:
         if self.args.model == 'resnet18':
             return self.model(images)
         raise NotImplementedError
-    
-    def featurize(self,x,num_samples=1,return_dist=False):
-        #print('Im in featurize 1')
-        #print(x.shape)
-        self.model=self.model.cuda()
+
+    def featurize(self, x, num_samples=1, return_dist=False):
+        # print('Im in featurize 1')
+        # print(x.shape)
+        self.model = self.model.cuda()
         features = self.model(x)
-        z_mu = features[:,:int(self.z_dim/2)]
-        z_sigma = F.softplus(features[:,int(self.z_dim/2):])
+        z_mu = features[:, :int(self.z_dim / 2)]
+        z_sigma = F.softplus(features[:, int(self.z_dim / 2):])
         z_mu = z_mu.to(x.device)
-        #print('printing z_mu and z_sigma')
-        #print(z_mu.shape , z_sigma.shape)
+        # print('printing z_mu and z_sigma')
+        # print(z_mu.shape , z_sigma.shape)
         z_sigma = z_sigma.to(x.device)
-        z_dist = distributions.Independent(distributions.normal.Normal(z_mu,z_sigma),1)
+        z_dist = distributions.Independent(distributions.normal.Normal(z_mu, z_sigma), 1)
         z = z_dist.rsample([num_samples])
-        #print("z size before view:", z.size())
-        z = z.view([-1, int(self.z_dim/2)])
-        #print("z size after view:", z.size())
-        #print('Im in featurize 2')
-        #print(z.shape)
+        # print("z size before view:", z.size())
+        z = z.view([-1, int(self.z_dim / 2)])
+        # print("z size after view:", z.size())
+        # print('Im in featurize 2')
+        # print(z.shape)
         if return_dist:
-            return z, (z_mu,z_sigma)
+            return z, (z_mu, z_sigma)
         else:
             return z
 
-
-    def classify(self,z):
-        #print('im in classify')
-        #print(z.shape)
+    def classify(self, z):
+        # print('im in classify')
+        # print(z.shape)
         fc1 = nn.Linear(7 * 7 * 32, 2048).to(z.device)
         fc2 = nn.Linear(2048, self.args.num_classes).to(z.device)
         x = F.relu(fc1(z))
         x = fc2(x)
-        #print('im in classify')
-        #print(x.shape)
+        # print('im in classify')
+        # print(x.shape)
         return x
-
 
     def run_epoch(self):
         """
@@ -103,33 +101,32 @@ class Client:
         for cur_step, (images, labels) in enumerate(self.train_loader):
             images = images.cuda()
             labels = labels.cuda()
-            
-            #outputs = self.model(images)
-            z,(z_mu,z_sigma) = self.featurize(images,return_dist=True)
+
+            # outputs = self.model(images)
+            z, (z_mu, z_sigma) = self.featurize(images, return_dist=True)
             logits = self.classify(z)
-            #print('im after logits')
-            #print(logits.shape , labels.shape)
+            # print('im after logits')
+            # print(logits.shape , labels.shape)
             loss = self.criterion(logits, labels)
 
             obj = loss
             regL2R = torch.zeros_like(obj)
             regCMI = torch.zeros_like(obj)
-        #if self.args.L2R_coeff != 0.0:
+            # if self.args.L2R_coeff != 0.0:
             regL2R = z.norm(dim=1).mean()
-            obj = obj + 0.01*regL2R#remember to put L2R coefficient as argument
-        #if self.args.CMI_coeff != 0.0:
+            obj = obj + 0.01 * regL2R  # remember to put L2R coefficient as argument
+            # if self.args.CMI_coeff != 0.0:
             self.r_sigma = self.r_sigma.cuda()
-            self.r_mu=self.r_mu.cuda()
+            self.r_mu = self.r_mu.cuda()
             r_sigma_softplus = F.softplus(self.r_sigma)
             r_mu = self.r_mu[labels]
             r_sigma = r_sigma_softplus[labels]
-            z_mu_scaled = z_mu*self.C
-            z_sigma_scaled = z_sigma*self.C
-            regCMI = torch.log(r_sigma) - torch.log(z_sigma_scaled) + \
-                    (z_sigma_scaled**2+(z_mu_scaled-r_mu)**2)/(2*r_sigma**2) - 0.5
+            z_mu_scaled = z_mu * self.C
+            z_sigma_scaled = z_sigma * self.C
+            regCMI = torch.log(r_sigma) - torch.log(z_sigma_scaled) + (
+                        z_sigma_scaled ** 2 + (z_mu_scaled - r_mu) ** 2) / (2 * r_sigma ** 2) - 0.5
             regCMI = regCMI.sum(1).mean()
-            obj = obj + 0.001*regCMI#remember to put CMI coefficient as argument
-
+            obj = obj + 0.001 * regCMI  # remember to put CMI coefficient as argument
 
             self.optimizer.zero_grad()
             obj.backward()
@@ -138,7 +135,7 @@ class Client:
             i += 1
             running_loss += obj.item()
             # print(labels.shape)
-            #accuracy = (logits.argmax(1)==labels).float().mean()
+            # accuracy = (logits.argmax(1)==labels).float().mean()
 
             correct_predictions = torch.sum(torch.eq(logits.argmax(1), labels)).item()
             tot_correct_predictions += correct_predictions
@@ -203,11 +200,8 @@ class Client:
                     parameters_to_prune = [(module, "weight") for module in
                                            filter(lambda m: type(m) == torch.nn.Linear, self.model.modules())]
                 # Apply pruning to the entire model
-                prune.global_unstructured(
-                    parameters=parameters_to_prune,
-                    pruning_method=prune.L1Unstructured,
-                    amount=self.args.amount_prune,
-                )
+                prune.global_unstructured(parameters=parameters_to_prune, pruning_method=prune.L1Unstructured,
+                    amount=self.args.amount_prune, )
 
             sparsity = 100. * float(
                 torch.sum(self.model.conv1.weight == 0) + torch.sum(self.model.conv2.weight == 0) + torch.sum(
@@ -216,7 +210,7 @@ class Client:
 
         return (len(self.train_loader), self.model.state_dict(), last_epoch_loss, sparsity)
 
-    def test(self, metric, key):
+    def test(self):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
@@ -229,16 +223,15 @@ class Client:
                 labels = labels.cuda()
 
                 features = self.model(images)
-                z=self.featurize(features)
+                z = self.featurize(features)
                 logits = self.classify(z)
-                #from the logits we get the actual class probabilities
+                # from the logits we get the actual class probabilities
 
                 _, predicted = torch.max(logits.data, 1)
 
                 total += labels.size(0)
                 correct += torch.eq(predicted, labels).sum().item()
 
-                self.update_metric(metric, logits, labels, key)
         return total, correct
 
     def get_pk(self):

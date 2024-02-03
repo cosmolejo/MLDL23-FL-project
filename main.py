@@ -1,12 +1,8 @@
-import os
-import pprint
 import random
 import sys
 
 import numpy as np
 import torch
-from torch import nn
-from torchvision.models import resnet18
 
 sys.path.append('datasets')
 
@@ -18,7 +14,6 @@ from entities.centralized_domain import Centralized as Centralized_domain
 
 from entities.server import Server
 
-
 from utils.args import get_parser
 
 from models.cnn import CNN
@@ -26,6 +21,8 @@ from models.cnn_domain import CNN as CNN_domain
 from utils.stream_metrics import StreamSegMetrics, StreamClsMetrics
 from utils.data_generation import *
 
+
+torch.set_warn_always(False)
 
 def set_seed(random_seed):
     random.seed(random_seed)
@@ -102,25 +99,43 @@ def gen_clients(args, train_datasets, test_datasets, model):
 
 
 def gen_rot_clients(args, datasets, model, angle=None):
+    print('Splitting Data')
     idx = 0
     clients = [[], []]
     if args.loo:
-        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
-        for key in datasets.keys():
-            if key == angle:
-                for ds in datasets[key]:
-                    clients[1].append(Client(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=True)
-                                      )
-                    idx += 1
-            else:
-                for ds in datasets[key]:
-                    clients[0].append(Client(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=False)
-                                      )
-                    idx += 1
+        if not args.federated:
+            train = []
+            test = []
+            for key in datasets.keys():
+                if key == angle:
+                    for ds in datasets[key]:
+                        test.append(ds)
+                else:
+                    for ds in datasets[key]:
+                        train.append(ds)
+
+            print('Done')
+            train = ConcatDataset([dataset for dataset in train])
+            test = ConcatDataset([dataset for dataset in test])
+            return train, test
+
+        else:
+            print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
+            for key in datasets.keys():
+                if key == angle:
+                    for ds in datasets[key]:
+                        clients[1].append(Client(args, ds, model,
+                                                 optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                 idx=idx, test_client=True)
+                                          )
+                        idx += 1
+                else:
+                    for ds in datasets[key]:
+                        clients[0].append(Client(args, ds, model,
+                                                 optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                 idx=idx, test_client=False)
+                                          )
+                        idx += 1
     else:
         indices = list(range(1000))
         sample = random.sample(indices, 700)
@@ -139,27 +154,28 @@ def gen_rot_clients(args, datasets, model, angle=None):
                                              idx=idx, test_client=True)
                                       )
                 idx += 1
-    print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
+    print('Done')
     return clients[0], clients[1]
+
 
 def gen_rot_clients_fedsr(args, datasets, model, angle=None):
     idx = 0
     clients = [[], []]
     if args.loo:
-        print('datasets: ', len(datasets.values()), 'keys:', datasets.keys())
+
         for key in datasets.keys():
             if key == angle:
                 for ds in datasets[key]:
                     clients[1].append(Client_domain(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=True)
+                                                    optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                    idx=idx, test_client=True)
                                       )
                     idx += 1
             else:
                 for ds in datasets[key]:
                     clients[0].append(Client_domain(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=False)
+                                                    optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                    idx=idx, test_client=False)
                                       )
                     idx += 1
     else:
@@ -171,17 +187,18 @@ def gen_rot_clients_fedsr(args, datasets, model, angle=None):
             for ds in datasets[key]:
                 if split[idx]:
                     clients[0].append(Client_domain(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=False)
+                                                    optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                    idx=idx, test_client=False)
                                       )
                 else:
                     clients[1].append(Client_domain(args, ds, model,
-                                             optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
-                                             idx=idx, test_client=True)
+                                                    optimizer=torch.optim.SGD(model.parameters(), lr=args.lr),
+                                                    idx=idx, test_client=True)
                                       )
                 idx += 1
     print(f'Clients len {len(clients)}, train {len(clients[0])}, test {len(clients[1])}')
     return clients[0], clients[1]
+
 
 def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, test_datasets=None):
     metrics = set_metrics(args)
@@ -204,19 +221,23 @@ def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, tes
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
     print('Done.')
     print('Creating server')
-    server = Server(args, train_clients, test_clients, model, metrics)
+    server = Server(args, train_clients, test_clients, model, metrics, angle)
     print('Training start.....')
     server.train()
 
 
-def centralized_exec(args, model):
-    print('Generate datasets...')
-    centralized_dataset = get_datasets(args)
-    print('Done.')
+def centralized_exec(args, model, angle=None, rot_dataset=None):
+    if args.loo:
+        train_datasets, test_datasets = gen_rot_clients(args, rot_dataset, model, angle)
+    else:
+        print('Generate datasets...')
+        centralized_dataset = get_datasets(args)
+        print('Done.')
     metrics = set_metrics(args)
     print('Creating centralized session')
-    if args.fedSR:
-        centralized = Centralized_domain(data=centralized_dataset, model=model, args=args, metrics=metrics)
+    if args.loo:
+        centralized = Centralized(data=train_datasets, model=model, args=args,
+                                  metrics=metrics, angle=angle, data_test_loo=test_datasets)
     else:
         centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
     print('Training start.....')
@@ -252,7 +273,17 @@ def main():
             else:
                 fed_exec(args, model, train_datasets=train_datasets, test_datasets=test_datasets)
     else:
-        centralized_exec(args, model)
+        if args.loo:
+            print('Generate datasets...')
+            rot_dataset = get_datasets(args)
+            print('Done.')
+
+            angles = ['0', '15', '30', '45', '60', '75']
+            for a in angles:
+                print('Training Domain for angle:', a)
+                centralized_exec(args, model, rot_dataset=rot_dataset, angle=a)
+        else:
+            centralized_exec(args, model)
 
 
 if __name__ == '__main__':

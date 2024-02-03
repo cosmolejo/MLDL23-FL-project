@@ -273,10 +273,10 @@ class RandomRotation(object):
 
         angle = self.get_params(self.degrees)
         if lbl is not None:
-            return F.rotate(img, angle, self.resample, self.expand, self.center), \
-                F.rotate(lbl, angle, self.resample, self.expand, self.center)
+            return F.rotate(img, angle, self.resample, self.expand, self.center, fill=[1.0]), \
+                F.rotate(lbl, angle, self.resample, self.expand, self.center, fill=[1.0])
         else:
-            return F.rotate(img, angle, self.resample, self.expand, self.center)
+            return F.rotate(img, angle, self.resample, self.expand, self.center, fill=[1.0])
 
 class Rotation(object):
     """Rotate the image by angle.
@@ -312,10 +312,10 @@ class Rotation(object):
         """
 
         if lbl is not None:
-            return F.rotate(img, self.angle, self.resample, self.expand, self.center), \
-                F.rotate(lbl, self.angle, self.resample, self.expand, self.center)
+            return F.rotate(img, self.angle, self.resample, self.expand, self.center, fill=[1.0]), \
+                F.rotate(lbl, self.angle, self.resample, self.expand, self.center, fill=[1.0])
         else:
-            return F.rotate(img, self.angle, self.resample, self.expand, self.center)
+            return F.rotate(img, self.angle, self.resample, self.expand, self.center, fill=[1.0])
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '(degrees={0}'.format(self.angle)

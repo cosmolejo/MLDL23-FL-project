@@ -10,7 +10,6 @@ from entities.client import Client
 from entities.client_domain import Client as Client_domain
 
 from entities.centralized import Centralized
-from entities.centralized_domain import Centralized as Centralized_domain
 
 from entities.server import Server
 

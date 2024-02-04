@@ -2,7 +2,7 @@ import torch
 from collections import defaultdict
 
 class ASAM:
-    def __init__(self, optimizer, model, rho=0.5, eta=0.01):
+    def __init__(self, optimizer, model, rho=0.05, eta=0.05):
         self.optimizer = optimizer
         self.model = model
         self.rho = rho

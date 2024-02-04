@@ -91,9 +91,7 @@ class Centralized:
                 self.optimizer.ascent_step()
 
                 #2nd forward+backward
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, labels)
-                loss.backward()
+                self.criterion(self.model(inputs), labels).backward()
                 self.optimizer.descent_step()
 
                 # print statistics

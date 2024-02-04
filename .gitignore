@@ -30,3 +30,9 @@ __pychache__/*
 reqs.txt
 
 */Results/*
+*.csv
+
+*/img/*
+*.sh
+*.png
+*tmp*

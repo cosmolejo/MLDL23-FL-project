@@ -53,4 +53,9 @@ def get_parser():
     parser.add_argument('--num_classes', type=int, default=62, help='number of classes')
     parser.add_argument('--fedSR', action='store_true', default=False, help='FedSR algorithm implementation')
     parser.add_argument('--all_data', action='store_true', default=False, help='Force all_data in domain generalization')
+
+    parser.add_argument('--rho', type=float, default=0.05,
+                        help="ASAM rho")
+    parser.add_argument('--eta', type=float, default=0.05,
+                        help="ASAM eta")
     return parser

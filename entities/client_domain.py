@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torch.distributions as distributions
 from utils.utils import HardNegativeMining, MeanReduction
 import torch.nn.utils.prune as prune
-
+from models.asam import  ASAM, SAM
 
 class Client:
 

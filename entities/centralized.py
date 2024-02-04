@@ -31,7 +31,7 @@ class Centralized:
                                          lr=args.lr, momentum=args.m,
                                          weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
 
-        self.optimizer = ASAM(optimizer=self.base_optimizer, model=self.model, rho=0.5, eta=0.01)
+        self.optimizer = ASAM(optimizer=self.base_optimizer, model=self.model, rho=0.2, eta=0.2)
         self.criterion = nn.CrossEntropyLoss()
         self.args = args
         self.metrics = metrics

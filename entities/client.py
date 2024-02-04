@@ -5,7 +5,7 @@ from torch import optim, nn
 from collections import defaultdict
 from torch.utils.data import DataLoader
 import threading
-
+from models.asam import  ASAM, SAM
 from utils.utils import HardNegativeMining, MeanReduction
 import torch.nn.utils.prune as prune
 
@@ -22,8 +22,9 @@ class Client:
         self.model = model
         self.idx = idx
         self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True) if not test_client else None
-        self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
-        self.optimizer = optimizer
+        self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)  # define loss function criterion = nn.CrossEntropyLoss()
+
+        self.optimizer = ASAM(optimizer=optimizer, model=self.model, rho=0.2, eta=0.2)
         self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
         self.reduction = HardNegativeMining() if self.args.hnm else MeanReduction()
         self.len_dataset = len(self.dataset)
@@ -61,17 +62,18 @@ class Client:
             images = images.cuda()
             labels = labels.cuda()
 
-            self.optimizer.zero_grad()
+            #self.optimizer.zero_grad()
 
             outputs = self.model(images)
-
             loss = self.criterion(outputs, labels)
-
             loss.backward()
+            self.optimizer.ascent_step()
             running_loss += loss.item()
 
-            self.optimizer.step()
+            #self.optimizer.step()
             i += 1
+            self.criterion(self.model(images), labels).backward()
+            self.optimizer.descent_step()
 
             predictions = torch.argmax(outputs, dim=1)
 

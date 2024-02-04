@@ -83,14 +83,17 @@ class Centralized:
                 inputs, labels = data
                 inputs, labels = inputs.cuda(), labels.cuda()
                 # zero the parameter gradients
-                self.optimizer.ascent_step()
 
-                # forward + backward + optimize
+                # 1st forward + backward + optimize
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
-
                 loss.backward()
+                self.optimizer.ascent_step()
 
+                #2nd forward+backward
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs, labels)
+                loss.backward()
                 self.optimizer.descent_step()
 
                 # print statistics

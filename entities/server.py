@@ -190,7 +190,7 @@ class Server:
             list_p10 = [1 / n30perc] * n30perc
             list_p90 = [1 / (len(self.train_clients) - n30perc)] * (len(self.train_clients) - n30perc)
 
-        test_accuracyp, train_accuracyp = [], []
+        test_accuracyp, train_accuracyp, mean_sparsp = [], [], []
 
         for r in range(self.args.num_rounds):
             # our addition
@@ -229,6 +229,7 @@ class Server:
             print(f"Mean sparsity for round {r + 1} (only for pruning): {mean_sparsity:.4f}")
             test_accuracyp.append(test_accuracy)
             train_accuracyp.append(train_accuracy)
+            mean_sparsp.append(mean_sparsity)
 
         if self.args.tuning == True:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
@@ -244,7 +245,7 @@ class Server:
                     index=False)
         else:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
-                          'Test accuracy': np.array(test_accuracyp)}
+                          'Test accuracy': np.array(test_accuracyp), 'Mean Sparsity': np.array(mean_sparsp)}
             train_csv = pd.DataFrame(train_dict)
             train_csv.to_csv(
                 f'Federated_Non-IID:{self.args.niid}_clientSelection:{self.args.client_select}_powerOfChoicesM:{self.args.power_of_choice_m}_prune:{self.args.prune}_conv:{self.args.conv}_linear:{self.args.linear}_strucured{self.args.structured}_amount_prune:{self.args.amount_prune}.csv',

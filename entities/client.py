@@ -21,7 +21,8 @@ class Client:
         self.name = self.dataset.client_name
         self.model = model
         self.idx = idx
-        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True) if not test_client else None
+        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True,
+                                       drop_last=True) if not test_client else None
         self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
         self.optimizer = optimizer
         self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
@@ -32,12 +33,12 @@ class Client:
     def __str__(self):
         return self.idx
 
-    # @staticmethod
-    # def update_metric(metric, outputs, labels, key):
-    #     _, prediction = outputs.max(dim=1)
-    #     labels = labels.cpu().numpy()
-    #     prediction = prediction.cpu().numpy()
-    #     metric[key].update(labels, prediction)
+    @staticmethod
+    def update_metric(metric, outputs, labels, key):
+        _, prediction = outputs.max(dim=1)
+        labels = labels.cpu().numpy()
+        prediction = prediction.cpu().numpy()
+        metric[key].update(labels, prediction)
 
     def _get_outputs(self, images):
         if self.args.model == 'deeplabv3_mobilenetv2':
@@ -66,13 +67,14 @@ class Client:
             outputs = self.model(images)
 
             loss = self.criterion(outputs, labels)
+            
 
             loss.backward()
             running_loss += loss.item()
 
             self.optimizer.step()
-            i += 1
-
+            i +=1
+            
             predictions = torch.argmax(outputs, dim=1)
 
             correct_predictions = torch.sum(torch.eq(predictions, labels)).item()
@@ -82,7 +84,9 @@ class Client:
         accuracy = tot_correct_predictions / self.len_dataset * 100
         return loss_for_this_epoch, accuracy
 
-    def train(self):
+       
+
+    def train(self,r):
         """
         This method locally trains the model with the dataset of the client. It handles the training at epochs level
         (by calling the run_epoch method for each local epoch of training)
@@ -93,25 +97,20 @@ class Client:
         sparsity = 0.0
 
         for epoch in range(self.args.num_epochs):
-            print(
-                f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch + 1}/{self.args.num_epochs}")
-
+            print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: START EPOCH={epoch + 1}/{self.args.num_epochs}")
+            
             loss_each_epoch, train_accuracy = self.run_epoch()
-
-            if epoch != self.args.num_epochs - 1:  # All epoch
-                print(
-                    f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",
-                    end="")
+            
+            if epoch != self.args.num_epochs-1: # All epoch 
+                print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",end="")
                 print(f"Loss={round(loss_each_epoch, 3)}, Accuracy={round(train_accuracy, 2)}%")
-
-            elif epoch == self.args.num_epochs - 1:  # Last epoch
+            
+            elif epoch == self.args.num_epochs-1: #Last epoch
                 last_epoch_loss = loss_each_epoch
-                print(
-                    f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",
-                    end="")
+                print(f"tid={str(threading.get_ident())[-7:]} - k_id={self.idx}: END   EPOCH={epoch + 1}/{self.args.num_epochs} - ",end="")
                 print(f"Loss last epochs:{round(last_epoch_loss, 3)}, Accuracy={round(train_accuracy, 2)}%")
-
-    if self.args.prune == True:
+        
+        if self.args.prune == True:
             if r > self.args.num_rounds * 0.7:
                 if self.args.conv == False and self.args.linear == False:
                         raise Exception("Choose a layer to prune")
@@ -145,7 +144,7 @@ class Client:
                 sparsity = 100. * float(torch.sum(self.model.conv1.weight == 0)+ torch.sum(self.model.conv2.weight == 0)+ torch.sum(self.model.fc1.weight == 0)+ torch.sum(self.model.fc2.weight == 0)) / float(self.model.conv1.weight.nelement()+ self.model.conv2.weight.nelement()+ self.model.fc1.weight.nelement()+ self.model.fc2.weight.nelement())
                     
         return (len(self.train_loader),self.model.state_dict(), last_epoch_loss, sparsity) 
-
+    
     def no_optim(self):
         # There is also scheduler for the learning rate that we will put later.
         # self.optim_scheduler.step()
@@ -156,18 +155,19 @@ class Client:
             images = images.cuda()
             labels = labels.cuda()
 
-            # self.optimizer.zero_grad()
+           #self.optimizer.zero_grad()
 
             outputs = self.model(images)
 
             loss = self.criterion(outputs, labels)
+            
 
             loss.backward()
             running_loss += loss.item()
 
-            # self.optimizer.step()
-            i += 1
-
+            #self.optimizer.step()
+            i +=1
+            
             predictions = torch.argmax(outputs, dim=1)
 
             correct_predictions = torch.sum(torch.eq(predictions, labels)).item()
@@ -176,8 +176,9 @@ class Client:
         loss_for_this_epoch = running_loss / i
         accuracy = tot_correct_predictions / self.len_dataset * 100
         return loss_for_this_epoch, accuracy
+        
 
-    def test(self):
+    def test(self, metric, key):
         """
         This method tests the model on the local dataset of the client.
         :param metric: StreamMetric object
@@ -196,13 +197,14 @@ class Client:
                 total += labels.size(0)
                 correct += torch.eq(predicted, labels).sum().item()
 
+                self.update_metric(metric, outputs, labels, key)
         return total, correct
 
     def get_pk(self):
         return self.pk
-
+    
     def set_pk(self, total_train_data):
         self.pk = len(self.train_loader) / total_train_data
-
+    
     def get_total_train(self):
         return len(self.train_loader)

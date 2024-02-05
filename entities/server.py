@@ -8,99 +8,100 @@ import torch
 import random
 import torch.nn.utils.prune as prune
 from torchsummary import summary
-from models.cnn import CNN
+from models.cnn import CNN 
 import pandas as pd
 
 
 class Server:
 
-    def __init__(self, args, train_clients, test_clients, model, metrics, angle=None):
+    def __init__(self, args, train_clients, test_clients, model, metrics):
         self.args = args
         self.train_clients = train_clients  # we do this in main, train test split
         self.test_clients = test_clients
         self.model = model
         self.metrics = metrics
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
-        if angle:
-            self.angle = angle
 
-    def select_clients(self, r, update=None, m=None, list_client10=None, list_client90=None, list_p10=None,
-                       list_p90=None):
+
+    
+    def select_clients(self,r, update = None,m=None, list_client10=None, list_client90=None, list_p10=None, list_p90=None):
         '''
         This method returns an array with the selected clients for the current round
         The way selection is done is by only considering the min number between
-        a pre-set value for num_clients arbitraily and then chose min
+        a pre-set value for num_clients arbitraily and then chose min 
         '''
         if self.args.client_select == 0:
             num_clients = min(self.args.clients_per_round, len(self.train_clients))
             sel_clients = np.random.choice(self.train_clients, num_clients, replace=False)
-
-        elif self.args.client_select == 1:
+        
+        elif self.args.client_select == 1:  
             num_clients = min(self.args.clients_per_round, len(self.train_clients))
             """
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
             sel_clients = []
-            i = 0
+            i=0
             while i != (num_clients):
                 if np.random.random() < 0.5:
                     c = np.random.choice(list_client10, p=list_p10, replace=False)
                     if c not in sel_clients:
                         sel_clients.append(c)
-                        i += 1
+                        i+=1
                 else:
                     c = np.random.choice(list_client90, p=list_p90, replace=False)
                     if c not in sel_clients:
                         sel_clients.append(c)
-                        i += 1
-
-        elif self.args.client_select == 2:
+                        i+=1
+        
+        elif self.args.client_select == 2:  
             num_clients = min(self.args.clients_per_round, len(self.train_clients))
             """
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
             sel_clients = []
-            i = 0
+            i=0
             while i != (num_clients):
                 if np.random.random() < 0.0001:
                     c = np.random.choice(list_client10, p=list_p10, replace=False)
                     if c not in sel_clients:
                         sel_clients.append(c)
-                        i += 1
+                        i+=1
                 else:
                     c = np.random.choice(list_client90, p=list_p90, replace=False)
                     if c not in sel_clients:
                         sel_clients.append(c)
-                        i += 1
-
+                        i+=1
+        
         elif self.args.client_select == 3:
             num_clients = min(self.args.clients_per_round, len(self.train_clients))
             sel_clients = []
             look_loss = []
-            list_pk = list()
+            list_pk =list()
             for c in self.train_clients:
                 list_pk.append(c.get_pk())
             sel_clients = np.random.choice(self.train_clients, num_clients, p=list_pk, replace=False)
             for sel_c in sel_clients:
                 loss, _ = sel_c.no_optim()
-                look_loss.append((sel_c, loss))
-            look_loss = sorted(look_loss, key=lambda l: l[1], reverse=True)
+                look_loss.append((sel_c, loss))     
+            look_loss = sorted(look_loss, key=lambda l:l[1], reverse=True)
             for i in look_loss:
                 print(f'client {i[0].idx}, with loss {i[1]}')
             sel_clients = []
             for i in range(self.args.power_of_choice_m):
                 sel_clients.append(look_loss[i][0])
                 print(f'select clients {look_loss[i][0].idx}, with loss {look_loss[i][1]}')
-
-            # print(f'update:{update}')
+            
+            
+            
+            #print(f'update:{update}')
             print(f'len clients:{len(sel_clients)}')
             for c in sel_clients:
                 print(f'selected client id: {c.idx}, pk: {c.get_pk()}')
         return sel_clients
 
-    def train_round(self, clients):
+    def train_round(self, clients,r):
         """
             This method trains the model with the dataset of the clients. It handles the training at single round level
             :param clients: list of all the clients to train
@@ -109,26 +110,25 @@ class Server:
             2. saves the output parameters for each client in a list of dicitionaries
             3. outputs this list "updates"
         """
-        # suppposed to keep the weights per each client
-        # in essence this is a list of dicitionaries
+        # suppposed to keep the weights per each client 
+        # in essence this is a list of dicitionaries 
         updates = []
         for i, c in enumerate(clients):
             # our addition
             # this initialized the method "train" in client
-            # which outputs model.state_dic
+            # which outputs model.state_dic 
             # which has as keys 'layer_weights':
-            # layer_bias:
-            num_samples, client_update, client_loss, sparsity = c.train()
-            updates.append((num_samples, copy.deepcopy(client_update), client_loss, c,
-                            sparsity))  # deep copy to not change the original dictionary of client
+            # layer_bias: 
+            num_samples,client_update,client_loss,sparsity = c.train(r)
+            updates.append((num_samples,copy.deepcopy(client_update),client_loss,c,sparsity)) #deep copy to not change the original dictionary of client
         return updates
 
     def aggregate(self, updates):
         total_client_sample = 0.
         base = OrderedDict()
-        mean_sparsity = 0
+        mean_sparsity = 0 
         tot_sparsity = 0
-        for (client_samples, client_model, _, _, sparsity) in updates:
+        for (client_samples, client_model,_,_,sparsity) in updates:
             total_client_sample += client_samples
             tot_sparsity += sparsity
             for key, value in client_model.items():
@@ -137,17 +137,20 @@ class Server:
                 else:
                     base[key] = (client_samples * value.type(torch.FloatTensor))
         mean_sparsity = tot_sparsity / self.args.clients_per_round
+                
 
         averaged_soln = copy.deepcopy(self.model.state_dict())
         for key, value in base.items():
             if total_client_sample != 0:
                 averaged_soln[key] = value.cuda() / total_client_sample
         return averaged_soln, mean_sparsity
-
-    def update_clients_model(self, aggregated_params):
+    
+    
+    def update_clients_model(self,aggregated_params):
         for i, c in enumerate(self.train_clients):
             c.model.load_state_dict(aggregated_params)
-
+        
+    
     def count_nonzero_parameters(self, model):
         non_zero_params = sum(p.numel() - torch.count_nonzero(p).item() for p in model.parameters())
         return non_zero_params
@@ -161,54 +164,52 @@ class Server:
         m = self.args.power_of_choice_m
         print(f'Your m in {m}')
         print(f'The K is {len(self.train_clients)}')
-
+        
         list_client10 = None
         list_client90 = None
         list_p10 = None
         list_p90 = None
-
-        if self.args.client_select == 1:
+        
+        if self.args.client_select == 1:  
             """
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
-            n10perc = math.ceil(len(self.train_clients) * 0.1)
-            list_client10 = self.train_clients[:n10perc]
+            n10perc = math.ceil(len(self.train_clients)*0.1)
+            list_client10 =  self.train_clients[:n10perc]
             list_client90 = self.train_clients[n10perc:]
-            list_p10 = [1 / n10perc] * n10perc
-            list_p90 = [1 / (len(self.train_clients) - n10perc)] * (len(self.train_clients) - n10perc)
-
-        if self.args.client_select == 2:
+            list_p10 = [1/n10perc] * n10perc
+            list_p90 = [1/(len(self.train_clients)-n10perc)] * (len(self.train_clients)-n10perc)
+            
+        if self.args.client_select == 2:  
             num_clients = min(self.args.clients_per_round, len(self.train_clients))
             """
             with 10% of clients being selected with probability 0.5 at each round
             with 30% of clients being selected with probability 0.0001 at each round
             """
-            n30perc = math.ceil(len(self.train_clients) * 0.3)
-            list_client10 = self.train_clients[:n30perc]
+            n30perc = math.ceil(len(self.train_clients)*0.3)
+            list_client10 =  self.train_clients[:n30perc]
             list_client90 = self.train_clients[n30perc:]
-            list_p10 = [1 / n30perc] * n30perc
-            list_p90 = [1 / (len(self.train_clients) - n30perc)] * (len(self.train_clients) - n30perc)
-
-        test_accuracyp, train_accuracyp, mean_sparsp = [], [], []
+            list_p10 = [1/n30perc] * n30perc
+            list_p90 = [1/(len(self.train_clients)-n30perc)] * (len(self.train_clients)-n30perc)
+            
+        test_accuracyp, train_accuracyp, meanslist = [], [], []
 
         for r in range(self.args.num_rounds):
             # our addition
             # take selected clients
             if r == 0:
-                sel_clients = self.select_clients(r, list_client10=list_client10, list_client90=list_client90,
-                                                  list_p10=list_p10, list_p90=list_p90)
+                sel_clients = self.select_clients(r,list_client10=list_client10,list_client90=list_client90, list_p10=list_p10,list_p90=list_p90)
             else:
-                sel_clients = self.select_clients(r, update=train_sel_c, m=m, list_client10=list_client10,
-                                                  list_client90=list_client90, list_p10=list_p10, list_p90=list_p90)
-
+                sel_clients = self.select_clients(r,update = train_sel_c, m=m,list_client10=list_client10,list_client90=list_client90, list_p10=list_p10,list_p90=list_p90)
+                
             if r != 0:
                 self.update_clients_model(aggregated_params=aggregated_params)
             print(f"Round {r + 1}/{self.args.num_rounds}")
 
-            # Train the model on the selected clients
+            # Train the model on the selected clients 
             # and ouputs "updates" the list with state_dic
-            train_sel_c = self.train_round(sel_clients)
+            train_sel_c = self.train_round(sel_clients,r=r)
 
             # Aggregate the updates using FedAvg for the selected clients
             # returns 1 dicitionary with the "final" parameters of the round
@@ -218,38 +219,28 @@ class Server:
             # we call the method model.load_state_dict from the "module" class
 
             self.model.load_state_dict(aggregated_params)
-
+            
             # Evaluate on the train clients
-            train_accuracy = self.eval_train(sel_clients, aggregated_params)
+            train_accuracy = self.eval_train(sel_clients,aggregated_params)
             print(f"Train Accuracy for round {r + 1} is : {train_accuracy:.4f}")
 
             # Test on the test clients
             test_accuracy = self.test(aggregated_params)
-            print(f"Test Accuracy for round {r + 1}: {test_accuracy:.4f}")
-            print(f"Mean sparsity for round {r + 1} (only for pruning): {mean_sparsity:.4f}")
             test_accuracyp.append(test_accuracy)
             train_accuracyp.append(train_accuracy)
-            mean_sparsp.append(mean_sparsity)
+            meanslist.append(mean_sparsity)
+            print(f"Test Accuracy for round {r + 1}: {test_accuracy:.4f}")
+            print(f"Mean sparsity for round {r + 1} (only for pruning): {mean_sparsity:.4f}")
 
+        
         if self.args.tuning == True:
-            train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
-                          'Test accuracy': np.array(test_accuracyp)}
+            train_dict = {'Epochs': np.array(range(self.args.num_rounds)),'Train accuracy': np.array(train_accuracyp), 'Test accuracy': np.array(test_accuracyp)}
             train_csv = pd.DataFrame(train_dict)
-            if self.args.loo:
-                train_csv.to_csv(
-                    f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}_rounds:{self.args.num_rounds}_angle:{self.angle}_numClients:{self.args.clients_per_round}_seed:{self.args.seed}_epochs:{self.args.num_epochs}.csv',
-                    index=False)
-            else:
-                train_csv.to_csv(
-                    f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}_rounds:{self.args.num_rounds}_numClients:{self.args.clients_per_round}_seed:{self.args.seed}_epochs:{self.args.num_epochs}.csv',
-                    index=False)
+            train_csv.to_csv(f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}.csv', index = False)
         else:
-            train_dict = {'Epochs': np.array(range(self.args.num_rounds)), 'Train accuracy': np.array(train_accuracyp),
-                          'Test accuracy': np.array(test_accuracyp), 'Mean Sparsity': np.array(mean_sparsp)}
+            train_dict = {'Epochs': np.array(range(self.args.num_rounds)),'Train accuracy': np.array(train_accuracyp), 'Test accuracy': np.array(test_accuracyp),'Mean Sparsity': np.array(meanslist)}
             train_csv = pd.DataFrame(train_dict)
-            train_csv.to_csv(
-                f'Federated_Non-IID:{self.args.niid}_clientSelection:{self.args.client_select}_powerOfChoicesM:{self.args.power_of_choice_m}_prune:{self.args.prune}_conv:{self.args.conv}_linear:{self.args.linear}_strucured{self.args.structured}_amount_prune:{self.args.amount_prune}.csv',
-                index=False)
+            train_csv.to_csv(f'Federated_Non-IID:{self.args.niid}_clientSelection:{self.args.client_select}_powerOfChoicesM:{self.args.power_of_choice_m}_prune:{self.args.prune}_conv:{self.args.conv}_linear:{self.args.linear}_strucured{self.args.structured}_amount_prune:{self.args.amount_prune}.csv', index = False)
 
     def eval_train(self, clients, aggregated_params):
         """
@@ -261,13 +252,13 @@ class Server:
         with torch.no_grad():
             for client in clients:
                 client.model.load_state_dict(aggregated_params)
-                client_samples, client_correct = client.test()
+                client_samples, client_correct = client.test(self.metrics, 'eval_train')
                 total_correct += client_correct
                 total_samples += client_samples
         accuracy = total_correct / total_samples
         return accuracy
 
-    def test(self, aggregated_params):
+    def test(self,aggregated_params):
         """
         This method handles the evaluation of the test_clients
         """
@@ -278,7 +269,7 @@ class Server:
         with torch.no_grad():
             for client in test_client:  # we select randomly args.clients_test for testing the model.
                 client.model.load_state_dict(aggregated_params)
-                client_samples, client_correct = client.test()
+                client_samples, client_correct = client.test(self.metrics, 'test')
                 total_correct += client_correct
                 total_samples += client_samples
         accuracy = total_correct / total_samples

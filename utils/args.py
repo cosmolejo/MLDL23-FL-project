@@ -5,8 +5,6 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--federated', action='store_true', default=False,
                         help='Run the federated learning pipeline instead of the centralized version')
-    parser.add_argument('--d_clients', type=int, default=0,
-                        help="The d subsect of clients in power of choices algorithm")
     parser.add_argument('--prune', type=bool, default=False,
                         help='Activate the pruning criteria')
     parser.add_argument('--conv', type=bool, default=False,

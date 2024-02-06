@@ -24,7 +24,7 @@ IMAGE_SIZE = 28
 
 class Centralized:
 
-    def __init__(self, data, model, args, metrics, angle=None, data_test_loo=None):
+    def __init__(self, data, model, args, angle=None, data_test_loo=None):
         self.data = data
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -33,7 +33,6 @@ class Centralized:
                                          weight_decay=args.wd)  # define loss function criterion = nn.CrossEntropyLoss()
         self.criterion = nn.CrossEntropyLoss()
         self.args = args
-        self.metrics = metrics
         if angle:
             self.angle = angle
             self.data_test = data_test_loo

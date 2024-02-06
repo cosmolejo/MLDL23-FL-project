@@ -14,13 +14,15 @@ import pandas as pd
 
 class Server:
 
-    def __init__(self, args, train_clients, test_clients, model, metrics):
+    def __init__(self, args, train_clients, test_clients, model, metrics, angle=None):
         self.args = args
         self.train_clients = train_clients  # we do this in main, train test split
         self.test_clients = test_clients
         self.model = model
         self.metrics = metrics
         self.model_params_dict = copy.deepcopy(self.model.state_dict())
+        if angle:
+            self.angle = angle
 
 
     
@@ -236,7 +238,14 @@ class Server:
         if self.args.tuning == True:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)),'Train accuracy': np.array(train_accuracyp), 'Test accuracy': np.array(test_accuracyp)}
             train_csv = pd.DataFrame(train_dict)
-            train_csv.to_csv(f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}.csv', index = False)
+            if self.args.loo:
+                train_csv.to_csv(
+                    f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}_rounds:{self.args.num_rounds}_angle:{self.angle}_numClients:{self.args.clients_per_round}_seed:{self.args.seed}_epochs:{self.args.num_epochs}.csv',
+                    index=False)
+            else:
+                train_csv.to_csv(
+                    f'Federated_Non-IID:{self.args.niid}_LocalEpochs:{self.args.num_epochs}_Lr:{self.args.lr}_momentum:{self.args.m}_wd:{self.args.wd}_batchSize:{self.args.bs}_rounds:{self.args.num_rounds}_numClients:{self.args.clients_per_round}_seed:{self.args.seed}_epochs:{self.args.num_epochs}.csv',
+                    index=False)
         else:
             train_dict = {'Epochs': np.array(range(self.args.num_rounds)),'Train accuracy': np.array(train_accuracyp), 'Test accuracy': np.array(test_accuracyp),'Mean Sparsity': np.array(meanslist)}
             train_csv = pd.DataFrame(train_dict)

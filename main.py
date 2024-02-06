@@ -144,32 +144,45 @@ def gen_rot_clients(args, datasets, model, angle=None):
 
 
 def fed_exec(args, model, rot_dataset=None, angle=None, train_datasets=None, test_datasets=None):
-
     metrics = set_metrics(args)
     # print(metrics)
     print('Gererating clients...')
     if args.rotation:
         if args.loo:
-            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
+            if args.fedSR:
+                train_clients, test_clients = gen_rot_clients_fedsr(args, rot_dataset, model, angle)
+            else:
+                train_clients, test_clients = gen_rot_clients(args, rot_dataset, model, angle)
+
         else:
-            train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
+            if args.fedSR:
+                train_clients, test_clients = gen_rot_clients_fedsr(args, rot_dataset, model)
+            else:
+                train_clients, test_clients = gen_rot_clients(args, rot_dataset, model)
 
     else:
         train_clients, test_clients = gen_clients(args, train_datasets, test_datasets, model)
     print('Done.')
     print('Creating server')
-    server = Server(args, train_clients, test_clients, model, metrics)
+    server = Server(args, train_clients, test_clients, model, metrics, angle)
     print('Training start.....')
     server.train()
 
 
-def centralized_exec(args, model):
-    print('Generate datasets...')
-    centralized_dataset = get_datasets(args)
-    print('Done.')
+def centralized_exec(args, model, angle=None, rot_dataset=None):
+    if args.loo:
+        train_datasets, test_datasets = gen_rot_clients(args, rot_dataset, model, angle)
+    else:
+        print('Generate datasets...')
+        centralized_dataset = get_datasets(args)
+        print('Done.')
     metrics = set_metrics(args)
     print('Creating centralized session')
-    centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
+    if args.loo:
+        centralized = Centralized(data=train_datasets, model=model, args=args,
+                                  metrics=metrics, angle=angle, data_test_loo=test_datasets)
+    else:
+        centralized = Centralized(data=centralized_dataset, model=model, args=args, metrics=metrics)
     print('Training start.....')
     centralized.pipeline()
 
@@ -202,7 +215,17 @@ def main():
             else:
                 fed_exec(args, model, train_datasets=train_datasets, test_datasets=test_datasets)
     else:
-        centralized_exec(args, model)
+        if args.loo:
+            print('Generate datasets...')
+            rot_dataset = get_datasets(args)
+            print('Done.')
+
+            angles = ['0', '15', '30', '45', '60', '75']
+            for a in angles:
+                print('Training Domain for angle:', a)
+                centralized_exec(args, model, rot_dataset=rot_dataset, angle=a)
+        else:
+            centralized_exec(args, model)
 
 
 if __name__ == '__main__':

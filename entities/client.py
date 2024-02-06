@@ -21,8 +21,7 @@ class Client:
         self.name = self.dataset.client_name
         self.model = model
         self.idx = idx
-        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True,
-                                       drop_last=True) if not test_client else None
+        self.train_loader = DataLoader(self.dataset, batch_size=self.args.bs, shuffle=True) if not test_client else None
         self.test_loader = DataLoader(self.dataset, batch_size=1, shuffle=False)
         self.optimizer = optimizer
         self.criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
